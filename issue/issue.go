@@ -119,11 +119,11 @@ func Close(client *jira.Client, issue *jira.Issue) (*jira.Issue, error) {
 		if t.Name == "Done" {
 			fmt.Printf("[%v] %v -> %v\n", issue.Key, issue.Fields.Status.Name, t.Name)
 			_, err = client.Issue.DoTransition(issue.ID, t.ID)
+			if err != nil {
+				return nil, err
+			}
 		}
 
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	currentIssue, err := GetByID(client, issue.ID)
@@ -133,6 +133,29 @@ func Close(client *jira.Client, issue *jira.Issue) (*jira.Issue, error) {
 
 	return currentIssue, nil
 
+}
+
+func BlockByIssue(client *jira.Client, issue *jira.Issue) (*jira.Issue, error) {
+	possibleTransitions, _, err := client.Issue.GetTransitions(issue.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, t := range possibleTransitions {
+		if t.Name == "Block" {
+			_, err := client.Issue.DoTransition(issue.ID, t.ID)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	currentIssue, err := GetByID(client, issue.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return currentIssue, nil
 }
 
 func OutputResponse(issues []jira.Issue, resp *jira.Response) {

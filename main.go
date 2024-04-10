@@ -25,8 +25,16 @@ func main() {
 		panic(err)
 	}
 
-	// tasks.DeactivateInsight(client)
-	email := ""
-	tasks.GetLaptopDescription(client, email)
+	tasks.DeactivateInsight(client)
+
+	// var email string
+	// fmt.Print("enter user's email: ")
+	// fmt.Scanln(&email)
+
+	// if email == "" {
+	// 	panic(errors.New("empty email"))
+	// }
+
+	// tasks.GetLaptopDescription(client, email)
 
 }

@@ -1,7 +1,6 @@
 package tasks
 
 import (
-	"errors"
 	"fmt"
 	"main/insight"
 	"main/issue"
@@ -10,36 +9,40 @@ import (
 	"github.com/andygrunwald/go-jira"
 )
 
-type LaptopDescription struct {
-	Name   string
-	ISC    string
-	Serial string
-}
-
 func GetLaptopDescription(client *jira.Client, email string) {
+	const ISC_ATTRIBUTE_ID = 879
+	const NAME_ATTRIBUTE_ID = 880
+	const SERIAL_ATTRIBUTE_ID = 889
+	const COST_ATTRIBUTE_ID = 4184
+
 	laptops, err := insight.GetUserLaptops(client, email)
 	if err != nil {
 		panic(err)
 	}
 
 	if len(laptops.ObjectEntries) > 1 {
-		panic(errors.New("user has more than one laptop"))
+		fmt.Printf("!!!\nuser has more than one laptop\n!!!\n")
 	}
 
-	serial := laptops.ObjectEntries[0].Label
-	isc := laptops.ObjectEntries[0].ObjectKey
-	name := laptops.ObjectEntries[0].Attributes[1].ObjectAttributeValues[0].Value
+	var name, isc, serial, cost string
 
-	description := LaptopDescription{
-		name, isc, serial,
-	}
+	for _, entry := range laptops.ObjectEntries {
+		for _, attribute := range entry.Attributes {
+			attributeValue := attribute.ObjectAttributeValues[0].Value
 
-	fmt.Println(description)
-
-	for _, attribute := range laptops.ObjectEntries[0].Attributes {
-		if attribute.ObjectTypeAttributeID == 4184 {
-			fmt.Println(attribute.ObjectAttributeValues[0].Value)
+			switch attribute.ObjectTypeAttributeID {
+			case NAME_ATTRIBUTE_ID:
+				name = attributeValue
+			case ISC_ATTRIBUTE_ID:
+				isc = attributeValue
+			case SERIAL_ATTRIBUTE_ID:
+				serial = attributeValue
+			case COST_ATTRIBUTE_ID:
+				cost = attributeValue
+			}
 		}
+
+		fmt.Printf("\nНоутбук %s\n%s\n%s\n\n%s\n\n", name, isc, serial, cost)
 	}
 
 }
@@ -79,6 +82,22 @@ func DeactivateInsight(client *jira.Client) {
 			fmt.Printf("parent issue %v has an incomplete subshipment task\n", pi.Key)
 			fmt.Printf("continuing...\n")
 			//block deactivation issue by the aforementioned subtask
+
+			ds, err := issue.GetSubtaskByComponent(client, &pi, "Insight")
+			if err != nil {
+				panic(err)
+			}
+
+			di, err := issue.GetByID(client, ds.ID)
+			if err != nil {
+				panic(err)
+			}
+
+			_, err = issue.BlockByIssue(client, di)
+			if err != nil {
+				panic(err)
+			}
+
 			continue
 		}
 
