@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"fmt"
+	"main/dismissal"
 	"main/insight"
 	"main/issue"
 	"os"
@@ -9,7 +10,14 @@ import (
 	"github.com/andygrunwald/go-jira"
 )
 
-func GetLaptopDescription(client *jira.Client, email string) {
+type LaptopDescription struct {
+	Name   string
+	Isc    string
+	Serial string
+	Cost   string
+}
+
+func GetLaptopDescription(client *jira.Client, email string) []LaptopDescription {
 	const ISC_ATTRIBUTE_ID = 879
 	const NAME_ATTRIBUTE_ID = 880
 	const SERIAL_ATTRIBUTE_ID = 889
@@ -25,26 +33,39 @@ func GetLaptopDescription(client *jira.Client, email string) {
 	}
 
 	var name, isc, serial, cost string
+	var res []LaptopDescription
 
 	for _, entry := range laptops.ObjectEntries {
+		d := new(LaptopDescription)
 		for _, attribute := range entry.Attributes {
 			attributeValue := attribute.ObjectAttributeValues[0].Value
 
 			switch attribute.ObjectTypeAttributeID {
 			case NAME_ATTRIBUTE_ID:
 				name = attributeValue
+				d.Name = name
 			case ISC_ATTRIBUTE_ID:
 				isc = attributeValue
+				d.Isc = isc
 			case SERIAL_ATTRIBUTE_ID:
 				serial = attributeValue
+				d.Serial = serial
 			case COST_ATTRIBUTE_ID:
 				cost = attributeValue
+				d.Cost = cost
 			}
 		}
-
-		fmt.Printf("\nНоутбук %s\n%s\n%s\n\n%s\n\n", name, isc, serial, cost)
+		res = append(res, *d)
 	}
 
+	return res
+
+}
+
+func PrintLaptopDescription(description []LaptopDescription) {
+	for _, d := range description {
+		fmt.Printf("\nНоутбук %s\n %s\n %s\n\n %s\n\n", d.Name, d.Isc, d.Serial, d.Cost)
+	}
 }
 
 func DeactivateInsight(client *jira.Client) {
@@ -155,4 +176,37 @@ func DeactivateInsight(client *jira.Client) {
 			panic(err)
 		}
 	}
+}
+
+func GenerateDismissalDocuments() {
+	const boss = "Козлов А.Ю."
+	const lead = "Степанов А.С."
+	doc := &dismissal.Document{
+		Template: "record.html",
+		Serial:   "1337",
+		Name:     "макбук))",
+		Isc:      "isc-228",
+		Date:     "14 Апреля 2024",
+		ID:       250,
+		Boss:     boss,
+		Lead:     lead,
+		Flaws:    "none",
+		Decision: "burn",
+	}
+
+	// commonDocument := &dismissal.Document{
+	// 	Serial: "1337",
+	// 	Name:   "laptop123",
+	// 	Isc:    "isc-228",
+	// 	Date:   "20.03.2000",
+	// 	Boss:   "Козлов А.Ю.",
+	// 	Lead:   "Степанов А.С.",
+	// }
+
+	template, err := dismissal.GenerateTemplate(doc)
+	if err != nil {
+		panic(err)
+	}
+
+	dismissal.GenerateDocument(template)
 }

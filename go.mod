@@ -3,6 +3,7 @@ module main
 go 1.22.0
 
 require (
+	github.com/adrg/go-wkhtmltopdf v0.3.0
 	github.com/andygrunwald/go-jira v1.16.0
 	github.com/joho/godotenv v1.5.1
 )
