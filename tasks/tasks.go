@@ -1,11 +1,11 @@
 package tasks
 
 import (
+	"errors"
 	"fmt"
 	"main/dismissal"
 	"main/insight"
 	"main/issue"
-	"os"
 
 	"github.com/andygrunwald/go-jira"
 )
@@ -17,15 +17,28 @@ type LaptopDescription struct {
 	Cost   string
 }
 
-func GetLaptopDescription(client *jira.Client, email string) []LaptopDescription {
+func GetUserLaptopDescription(client *jira.Client) error {
 	const ISC_ATTRIBUTE_ID = 879
 	const NAME_ATTRIBUTE_ID = 880
 	const SERIAL_ATTRIBUTE_ID = 889
 	const COST_ATTRIBUTE_ID = 4184
 
-	laptops, err := insight.GetUserLaptops(client, email)
+	var email string
+	fmt.Print("enter user's email: ")
+	fmt.Scanln(&email)
+
+	if email == "" {
+		panic(errors.New("empty email"))
+	}
+
+	user, err := insight.GetUserByEmail(client, email)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	laptops, err := insight.GetUserLaptops(client, user)
+	if err != nil {
+		return fmt.Errorf("failed to get user laptops: %w", err)
 	}
 
 	if len(laptops.ObjectEntries) > 1 {
@@ -58,38 +71,43 @@ func GetLaptopDescription(client *jira.Client, email string) []LaptopDescription
 		res = append(res, *d)
 	}
 
-	return res
+	PrintLaptopDescription(res)
+
+	return nil
+	// return res, nil
 
 }
 
 func PrintLaptopDescription(description []LaptopDescription) {
 	for _, d := range description {
-		fmt.Printf("\nНоутбук %s\n %s\n %s\n\n %s\n\n", d.Name, d.Isc, d.Serial, d.Cost)
+		fmt.Printf("\nНоутбук %s\n %s \n %s \n\n %s \n\n", d.Name, d.Isc, d.Serial, d.Cost)
 	}
 }
 
-func DeactivateInsight(client *jira.Client) {
+func DeactivateInsight(client *jira.Client) error {
 	jql := `project = "IT Support" AND assignee = currentUser() AND status = open AND summary ~ "Деактивировать в Insight"`
 
 	deactivationIssues, err := issue.GetAll(client, jql)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	if len(deactivationIssues) == 0 {
-		fmt.Println("no deactivation issues")
-		os.Exit(1)
+		return errors.New("no deactivation issues")
 	}
 
 	var parentIssues []jira.Issue
 
 	for _, di := range deactivationIssues {
+		fmt.Print("found an issue: ")
+		issue.PrintIssue(&di)
 		parentIssue, err := issue.GetByID(client, di.Fields.Parent.ID)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
-		fmt.Printf("found a parent issue %v\n", parentIssue.Key)
+		fmt.Print("found a parent issue: ")
+		issue.PrintIssue(parentIssue)
 		parentIssues = append(parentIssues, *parentIssue)
 	}
 
@@ -101,22 +119,27 @@ func DeactivateInsight(client *jira.Client) {
 
 		if ss.Fields.Status.Name != "Closed" {
 			fmt.Printf("parent issue %v has an incomplete subshipment task\n", pi.Key)
-			fmt.Printf("continuing...\n")
 			//block deactivation issue by the aforementioned subtask
 
 			ds, err := issue.GetSubtaskByComponent(client, &pi, "Insight")
 			if err != nil {
-				panic(err)
+				return err
 			}
 
 			di, err := issue.GetByID(client, ds.ID)
 			if err != nil {
-				panic(err)
+				return err
 			}
 
-			_, err = issue.BlockByIssue(client, di)
+			bi, err := issue.GetByID(client, ss.ID)
 			if err != nil {
-				panic(err)
+				return err
+			}
+
+			fmt.Printf("blocking %v by %v\n", di.Key, bi.Key)
+			_, err = issue.BlockByIssue(client, di, bi)
+			if err != nil {
+				return err
 			}
 
 			continue
@@ -124,14 +147,19 @@ func DeactivateInsight(client *jira.Client) {
 
 		userEmail, err := issue.GetUserEmail(client, pi.Key)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		fmt.Printf("found a user %v\n", userEmail)
 
-		laptops, err := insight.GetUserLaptops(client, userEmail)
+		user, err := insight.GetUserByEmail(client, userEmail)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("failed to get user by email: %w", err)
+		}
+
+		laptops, err := insight.GetUserLaptops(client, user)
+		if err != nil {
+			return err
 		}
 
 		fmt.Printf("user %v has %v laptops\n", userEmail, len(laptops.ObjectEntries))
@@ -144,19 +172,19 @@ func DeactivateInsight(client *jira.Client) {
 			category = "BYOD"
 		}
 
-		ISC, err := insight.GetUserISC(client, userEmail)
+		// user, err := insight.GetUserByEmail(client, userEmail)
+		// if err != nil {
+		// 	panic(err)
+		// }
+
+		fmt.Printf("changing %v's status to %v\n", user.ObjectKey, category)
+		_, err = insight.SetUserCategory(client, user, category)
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Printf("changing %v's status to %v\n", ISC, category)
-		_, err = insight.SetUserCategory(client, ISC, category)
-		if err != nil {
-			panic(err)
-		}
-
-		fmt.Printf("disabling %v\n", ISC)
-		_, err = insight.DisableUser(client, ISC)
+		fmt.Printf("disabling %v\n", user.ObjectKey)
+		_, err = insight.DisableUser(client, user)
 		if err != nil {
 			panic(err)
 		}
@@ -176,6 +204,8 @@ func DeactivateInsight(client *jira.Client) {
 			panic(err)
 		}
 	}
+
+	return nil
 }
 
 func GenerateDismissalDocuments() {

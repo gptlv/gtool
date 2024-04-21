@@ -1,17 +1,42 @@
 package issue
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"main/types"
 
 	"github.com/andygrunwald/go-jira"
 )
+
+const EMAIL_FIELD_KEY = "customfield_10145"
+
+var blockByIssuePayloadBody = `
+{
+	"transition": {
+		"id": "%v"
+	},
+	"update": {
+		"issuelinks": [
+			{
+				"add": {
+					"type": {
+						"name": "Blocks"
+					},
+					"inwardIssue": {
+						"key": "%v"
+					}
+				}
+			}
+		]
+	}
+}`
 
 func GetAll(client *jira.Client, jql string) ([]jira.Issue, error) {
 	fmt.Printf("Usecase: Running a JQL query '%s'\n", jql)
 	issues, _, err := client.Issue.Search(jql, nil)
 	if err != nil {
-		return []jira.Issue{}, err
+		return []jira.Issue{}, fmt.Errorf("falied to get all issues: %w", err)
 	}
 
 	return issues, nil
@@ -79,7 +104,7 @@ func GetUserEmail(client *jira.Client, key string) (string, error) {
 		return "", err
 	}
 
-	email, _ := issue.Fields.Unknowns.Value("customfield_10145")
+	email, _ := issue.Fields.Unknowns.Value(EMAIL_FIELD_KEY)
 
 	return fmt.Sprintf("%v", email), nil
 }
@@ -135,27 +160,36 @@ func Close(client *jira.Client, issue *jira.Issue) (*jira.Issue, error) {
 
 }
 
-func BlockByIssue(client *jira.Client, issue *jira.Issue) (*jira.Issue, error) {
-	possibleTransitions, _, err := client.Issue.GetTransitions(issue.ID)
+func BlockByIssue(client *jira.Client, currentIssue *jira.Issue, blockingIssue *jira.Issue) (*jira.Issue, error) {
+	possibleTransitions, _, err := client.Issue.GetTransitions(currentIssue.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, t := range possibleTransitions {
 		if t.Name == "Block" {
-			_, err := client.Issue.DoTransition(issue.ID, t.ID)
+			body := fmt.Sprintf(blockByIssuePayloadBody, t.ID, blockingIssue.Key)
+
+			payload := new(types.BlockByIssuePayload)
+
+			err := json.Unmarshal([]byte(body), payload)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = client.Issue.DoTransitionWithPayload(currentIssue.ID, &payload)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	currentIssue, err := GetByID(client, issue.ID)
+	updatedIssue, err := GetByID(client, currentIssue.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	return currentIssue, nil
+	return updatedIssue, nil
 }
 
 func OutputResponse(issues []jira.Issue, resp *jira.Response) {
@@ -163,6 +197,10 @@ func OutputResponse(issues []jira.Issue, resp *jira.Response) {
 	fmt.Printf("Response Code: %d\n", resp.StatusCode)
 	fmt.Println("==================================")
 	for _, i := range issues {
-		fmt.Printf("%s (%s/%s): %+v\n", i.Key, i.Fields.Type.Name, i.Fields.Priority.Name, i.Fields.Summary)
+		PrintIssue(&i)
 	}
+}
+
+func PrintIssue(issue *jira.Issue) {
+	fmt.Printf("%s (%s/%s): %+v\n", issue.Key, issue.Fields.Type.Name, issue.Fields.Priority.Name, issue.Fields.Summary)
 }

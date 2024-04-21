@@ -1,8 +1,8 @@
 package main
 
 import (
-	"errors"
 	"fmt"
+	"log"
 	"main/tasks"
 	"os"
 
@@ -26,18 +26,15 @@ func main() {
 		panic(err)
 	}
 
-	// tasks.DeactivateInsight(client)
+	// err = tasks.DeactivateInsight(client)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	var email string
-	fmt.Print("enter user's email: ")
-	fmt.Scanln(&email)
-
-	if email == "" {
-		panic(errors.New("empty email"))
+	err = tasks.GetUserLaptopDescription(client)
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	descriptions := tasks.GetLaptopDescription(client, email)
-	tasks.PrintLaptopDescription(descriptions)
 
 	// tasks.GenerateDismissalDocuments()
 
