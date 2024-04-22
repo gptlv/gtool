@@ -39,6 +39,25 @@ var endpoints = struct {
 	"rest/insight/1.0/attachments/object/%v",
 }
 
+func GetObjectByISC(client *jira.Client, ISC string) (*types.InsightObject, error) {
+	objectEndPoint := fmt.Sprintf(endpoints.GetObjectByISC, ISC)
+
+	req, err := client.NewRequest("GET", objectEndPoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a request: %w", err)
+	}
+
+	object := new(types.InsightObject)
+
+	_, err = client.Do(req, object)
+	if err != nil {
+		return nil, fmt.Errorf("failed to do a request: %w", err)
+	}
+
+	return object, nil
+
+}
+
 func GetObjectAttachments(client *jira.Client, object *types.InsightObject) ([]types.InsightAttachment, error) {
 	objectAttachmentsEndPoint := fmt.Sprintf(endpoints.GetAttachments, object.ID)
 

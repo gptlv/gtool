@@ -6,8 +6,10 @@ import (
 	"main/dismissal"
 	"main/insight"
 	"main/issue"
+	"time"
 
 	"github.com/andygrunwald/go-jira"
+	"github.com/goodsign/monday"
 )
 
 type LaptopDescription struct {
@@ -172,11 +174,6 @@ func DeactivateInsight(client *jira.Client) error {
 			category = "BYOD"
 		}
 
-		// user, err := insight.GetUserByEmail(client, userEmail)
-		// if err != nil {
-		// 	panic(err)
-		// }
-
 		fmt.Printf("changing %v's status to %v\n", user.ObjectKey, category)
 		_, err = insight.SetUserCategory(client, user, category)
 		if err != nil {
@@ -208,35 +205,60 @@ func DeactivateInsight(client *jira.Client) error {
 	return nil
 }
 
-func GenerateDismissalDocuments() {
+func GenerateDismissalDocuments(client *jira.Client, ISC string) error {
 	const boss = "Козлов А.Ю."
 	const lead = "Степанов А.С."
-	doc := &dismissal.Document{
-		Template: "record.html",
-		Serial:   "1337",
-		Name:     "макбук))",
-		Isc:      "isc-228",
-		Date:     "14 Апреля 2024",
-		ID:       250,
-		Boss:     boss,
-		Lead:     lead,
-		Flaws:    "none",
-		Decision: "burn",
+
+	var templateNames = []string{"record", "commitee", "dismissal"}
+
+	laptop, err := insight.GetObjectByISC(client, ISC)
+	if err != nil {
+		return fmt.Errorf("failed to get object by isc: %w", err)
 	}
 
-	// commonDocument := &dismissal.Document{
-	// 	Serial: "1337",
-	// 	Name:   "laptop123",
-	// 	Isc:    "isc-228",
-	// 	Date:   "20.03.2000",
-	// 	Boss:   "Козлов А.Ю.",
-	// 	Lead:   "Степанов А.С.",
+	document, err := dismissal.GenerateObjectDocument(laptop)
+	if err != nil {
+		return fmt.Errorf("failed to generate object document: %w", err)
+	}
+
+	t := time.Now()
+	layout := "2 January 2006"
+	date := monday.Format(t, layout, monday.LocaleRuRU)
+
+	document.Date = date
+	document.Boss = boss
+	document.Lead = lead
+	document.Flaws = "none"
+	document.Decision = "burn"
+	document.ID = 250
+
+	// doc := &types.DismissalDocument{
+	// 	Template: "record.html",
+	// 	Serial:   "1337",
+	// 	Name:     "макбук))",
+	// 	Isc:      "isc-228",
+	// 	Date:     "14 Апреля 2024",
+	// 	ID:       250,
+	// 	Boss:     boss,
+	// 	Lead:     lead,
+	// 	Flaws:    "none",
+	// 	Decision: "burn",
 	// }
 
-	template, err := dismissal.GenerateTemplate(doc)
-	if err != nil {
-		panic(err)
+	// template, err := dismissal.GenerateTemplate(document)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	for _, name := range templateNames {
+		document.Template = name
+
+		err = dismissal.GeneratePDF(document)
+		if err != nil {
+			return fmt.Errorf("failed to generate PDF: %w", err)
+		}
+
 	}
 
-	dismissal.GenerateDocument(template)
+	return nil
 }

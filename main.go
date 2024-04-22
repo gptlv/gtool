@@ -23,7 +23,7 @@ func main() {
 
 	client, err := jira.NewClient(tp.Client(), os.Getenv("JIRA_URL"))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	// err = tasks.DeactivateInsight(client)
@@ -31,11 +31,14 @@ func main() {
 	// 	log.Fatal(err)
 	// }
 
-	err = tasks.GetUserLaptopDescription(client)
+	// err = tasks.GetUserLaptopDescription(client)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	err = tasks.GenerateDismissalDocuments(client, "ISC-192756")
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// tasks.GenerateDismissalDocuments()
 
 }

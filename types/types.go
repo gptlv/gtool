@@ -2,6 +2,19 @@ package types
 
 import "time"
 
+type DismissalDocument struct {
+	Template string
+	Serial   string
+	Isc      string
+	Name     string
+	Date     string
+	Boss     string
+	Lead     string
+	Flaws    string
+	Decision string
+	ID       int
+}
+
 type InsightUserAttributesPayload struct {
 	Attributes []struct {
 		ObjectTypeAttributeID int `json:"objectTypeAttributeId"`

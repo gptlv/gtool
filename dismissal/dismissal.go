@@ -4,27 +4,38 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"log"
+	"main/types"
 	"os"
+	"path/filepath"
 
 	pdf "github.com/adrg/go-wkhtmltopdf"
 )
 
-type Document struct {
-	Template string
-	Serial   string
-	Isc      string
-	Name     string
-	Date     string
-	Boss     string
-	Lead     string
-	Flaws    string
-	Decision string
-	ID       int
+const ISC_ATTRIBUTE_ID = 879
+const NAME_ATTRIBUTE_ID = 880
+const SERIAL_ATTRIBUTE_ID = 889
+
+func GenerateObjectDocument(object *types.InsightObject) (*types.DismissalDocument, error) {
+	document := new(types.DismissalDocument)
+
+	for _, attribute := range object.Attributes {
+		attributeValue := attribute.ObjectAttributeValues[0].Value
+
+		switch attribute.ObjectTypeAttributeID {
+		case ISC_ATTRIBUTE_ID:
+			document.Isc = attributeValue
+		case NAME_ATTRIBUTE_ID:
+			document.Name = attributeValue
+		case SERIAL_ATTRIBUTE_ID:
+			document.Serial = attributeValue
+		}
+	}
+
+	return document, nil
 }
 
-func GenerateTemplate(doc *Document) ([]byte, error) {
-	filepath := fmt.Sprintf("templates/%v", doc.Template)
+func GenerateTemplate(doc *types.DismissalDocument) ([]byte, error) {
+	filepath := fmt.Sprintf("templates/%v.html", doc.Template)
 
 	tmpl := template.Must(template.ParseFiles(filepath))
 	buf := new(bytes.Buffer)
@@ -36,27 +47,44 @@ func GenerateTemplate(doc *Document) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func GenerateDocument(template []byte) {
+func GeneratePDF(document *types.DismissalDocument) error {
+	template, err := GenerateTemplate(document)
+	if err != nil {
+		return fmt.Errorf("failed to generate template: %w", err)
+	}
+
 	if err := pdf.Init(); err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to initialize pdf: %w", err)
 	}
 	defer pdf.Destroy()
 
 	converter, err := pdf.NewConverter()
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to create pdf converter: %w", err)
 	}
 	defer converter.Destroy()
 
-	outFile, err := os.Create("out.pdf")
+	cwd, err := os.Getwd()
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to get working directory: %w", err)
 	}
-	defer outFile.Close()
+
+	dirPath := filepath.Join(cwd, fmt.Sprintf("%v", document.Isc))
+	err = os.MkdirAll(dirPath, os.ModePerm) // Use MkdirAll to create parent directories if they don't exist
+	if err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	filePath := filepath.Join(dirPath, fmt.Sprintf("%v.pdf", document.Template))
+	file, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to create pdf file: %w", err)
+	}
+	defer file.Close()
 
 	object, err := pdf.NewObjectFromReader(bytes.NewReader(template))
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to create new object from reader: %w", err)
 	}
 
 	converter.Add(object)
@@ -69,7 +97,9 @@ func GenerateDocument(template []byte) {
 	converter.MarginLeft = "1cm"
 	converter.MarginRight = "1cm"
 
-	if err := converter.Run(outFile); err != nil {
-		log.Fatal(err)
+	if err := converter.Run(file); err != nil {
+		return fmt.Errorf("failed to run converter: %w", err)
 	}
+
+	return nil
 }
