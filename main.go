@@ -31,14 +31,14 @@ func main() {
 	// 	log.Fatal(err)
 	// }
 
-	// err = tasks.GetUserLaptopDescription(client)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	err = tasks.GenerateDismissalDocuments(client, "ISC-192756")
+	err = tasks.GetUserLaptopDescription(client)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// err = tasks.GenerateDismissalDocuments(client, "ISC-192756")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 }

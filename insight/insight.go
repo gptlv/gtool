@@ -34,12 +34,12 @@ var endpoints = struct {
 	GetAttachments      string
 }{
 	"rest/insight/1.0/iql/objects?iql=object+having+outboundReferences(Key+=+%v)+and+objectType+=+Laptops",
-	"rest/insight/1.0/iql/objects?iql=Email=%v",
+	"rest/insight/1.0/iql/objects?iql=Email=%v&objectSchemaId=41", // 41 -- IT SD CMDB
 	"rest/insight/1.0/object/%v/",
 	"rest/insight/1.0/attachments/object/%v",
 }
 
-func GetObjectByISC(client *jira.Client, ISC string) (*types.InsightObject, error) {
+func GetObjectByISC(client *jira.Client, ISC string) (*types.ObjectEntry, error) {
 	objectEndPoint := fmt.Sprintf(endpoints.GetObjectByISC, ISC)
 
 	req, err := client.NewRequest("GET", objectEndPoint, nil)
@@ -47,7 +47,7 @@ func GetObjectByISC(client *jira.Client, ISC string) (*types.InsightObject, erro
 		return nil, fmt.Errorf("failed to create a request: %w", err)
 	}
 
-	object := new(types.InsightObject)
+	object := new(types.ObjectEntry)
 
 	_, err = client.Do(req, object)
 	if err != nil {
@@ -58,7 +58,7 @@ func GetObjectByISC(client *jira.Client, ISC string) (*types.InsightObject, erro
 
 }
 
-func GetObjectAttachments(client *jira.Client, object *types.InsightObject) ([]types.InsightAttachment, error) {
+func GetObjectAttachments(client *jira.Client, object *types.ObjectEntry) ([]types.InsightAttachment, error) {
 	objectAttachmentsEndPoint := fmt.Sprintf(endpoints.GetAttachments, object.ID)
 
 	req, err := client.NewRequest("GET", objectAttachmentsEndPoint, nil)
@@ -77,25 +77,7 @@ func GetObjectAttachments(client *jira.Client, object *types.InsightObject) ([]t
 
 }
 
-func GetUserLaptops(client *jira.Client, user *types.InsightObject) (*types.InsightObjectEntries, error) {
-	userLaptopsEndPoint := fmt.Sprintf(endpoints.GetUserLaptopsByKey, user.ObjectKey)
-
-	req, err := client.NewRequest("GET", userLaptopsEndPoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a request: %w", err)
-	}
-
-	entries := new(types.InsightObjectEntries)
-
-	_, err = client.Do(req, entries)
-	if err != nil {
-		return nil, fmt.Errorf("failed to do a request: %w", err)
-	}
-
-	return entries, nil
-}
-
-func DisableUser(client *jira.Client, user *types.InsightObject) (*types.InsightObject, error) {
+func DisableUser(client *jira.Client, user *types.ObjectEntry) (*types.ObjectEntry, error) {
 	payload := new(types.InsightUserAttributesPayload)
 	body := fmt.Sprintf(userAttributePayloadBody, 4220, 100)
 
@@ -119,7 +101,7 @@ func DisableUser(client *jira.Client, user *types.InsightObject) (*types.Insight
 	return user, nil
 }
 
-func SetUserCategory(client *jira.Client, user *types.InsightObject, category string) (*types.InsightObject, error) {
+func SetUserCategory(client *jira.Client, user *types.ObjectEntry, category string) (*types.ObjectEntry, error) {
 	if category != "BYOD" && category != "Corporate laptop" {
 		return nil, errors.New("invalid user category")
 	}
@@ -147,25 +129,56 @@ func SetUserCategory(client *jira.Client, user *types.InsightObject, category st
 	return user, nil
 }
 
-func GetUserByEmail(client *jira.Client, email string) (*types.InsightObject, error) {
-	userEndPoint := fmt.Sprintf(endpoints.GetUserByEmail, email)
-
-	req, err := client.NewRequest("GET", userEndPoint, nil)
+func SearchForObjects(client *jira.Client, endpoint string) (*types.ObjectSearchRes, error) {
+	req, err := client.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a request: %w", err)
 	}
 
-	entries := new(types.InsightObjectEntries)
+	res := new(types.ObjectSearchRes)
 
-	_, err = client.Do(req, entries)
+	_, err = client.Do(req, res)
 	if err != nil {
 		return nil, fmt.Errorf("failed to do a request: %w", err)
 	}
 
-	return &entries.ObjectEntries[0], nil
+	return res, nil
 }
 
-func GetUserEmail(user *types.InsightObject) string {
+func GetUserByEmail(client *jira.Client, email string) (*types.ObjectEntry, error) {
+	userEndPoint := fmt.Sprintf(endpoints.GetUserByEmail, email)
+
+	res, err := SearchForObjects(client, userEndPoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search for a user: %w", err)
+	}
+
+	if len(res.ObjectEntries) == 0 {
+		return nil, nil
+	}
+
+	if len(res.ObjectEntries) > 1 {
+		return &res.ObjectEntries[0], fmt.Errorf("found more than one user")
+	}
+
+	return &res.ObjectEntries[0], nil
+}
+
+func GetUserLaptops(client *jira.Client, user *types.ObjectEntry) ([]types.ObjectEntry, error) {
+	if user == nil {
+		return nil, fmt.Errorf("empty user")
+	}
+	userLaptopsEndPoint := fmt.Sprintf(endpoints.GetUserLaptopsByKey, user.ObjectKey)
+
+	entries, err := SearchForObjects(client, userLaptopsEndPoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed for search for laptops: %w", err)
+	}
+
+	return entries.ObjectEntries, nil
+}
+
+func GetUserEmail(user *types.ObjectEntry) string {
 	for _, attr := range user.Attributes {
 		if attr.ObjectTypeAttributeID == USER_EMAIL_ATTRIBUTE_ID {
 			return attr.ObjectAttributeValues[0].Value

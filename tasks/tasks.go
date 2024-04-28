@@ -38,19 +38,19 @@ func GetUserLaptopDescription(client *jira.Client) error {
 		return fmt.Errorf("failed to get user by email: %w", err)
 	}
 
-	laptops, err := insight.GetUserLaptops(client, user)
+	entries, err := insight.GetUserLaptops(client, user)
 	if err != nil {
 		return fmt.Errorf("failed to get user laptops: %w", err)
 	}
 
-	if len(laptops.ObjectEntries) > 1 {
+	if len(entries) > 1 {
 		fmt.Printf("!!!\nuser has more than one laptop\n!!!\n")
 	}
 
 	var name, isc, serial, cost string
 	var res []LaptopDescription
 
-	for _, entry := range laptops.ObjectEntries {
+	for _, entry := range entries {
 		d := new(LaptopDescription)
 		for _, attribute := range entry.Attributes {
 			attributeValue := attribute.ObjectAttributeValues[0].Value
@@ -76,8 +76,6 @@ func GetUserLaptopDescription(client *jira.Client) error {
 	PrintLaptopDescription(res)
 
 	return nil
-	// return res, nil
-
 }
 
 func PrintLaptopDescription(description []LaptopDescription) {
@@ -98,7 +96,7 @@ func DeactivateInsight(client *jira.Client) error {
 		return errors.New("no deactivation issues")
 	}
 
-	var parentIssues []jira.Issue
+	var unresolved []jira.Issue
 
 	for _, di := range deactivationIssues {
 		fmt.Print("found an issue: ")
@@ -110,20 +108,17 @@ func DeactivateInsight(client *jira.Client) error {
 
 		fmt.Print("found a parent issue: ")
 		issue.PrintIssue(parentIssue)
-		parentIssues = append(parentIssues, *parentIssue)
-	}
 
-	for _, pi := range parentIssues {
-		ss, err := issue.GetSubtaskByComponent(client, &pi, "Возврат оборудования")
+		ss, err := issue.GetSubtaskByComponent(client, parentIssue, "Возврат оборудования")
 		if err != nil {
 			panic(err)
 		}
 
 		if ss.Fields.Status.Name != "Closed" {
-			fmt.Printf("parent issue %v has an incomplete subshipment task\n", pi.Key)
+			fmt.Printf("parent issue %v has an incomplete subshipment task\n", parentIssue.Key)
 			//block deactivation issue by the aforementioned subtask
 
-			ds, err := issue.GetSubtaskByComponent(client, &pi, "Insight")
+			ds, err := issue.GetSubtaskByComponent(client, parentIssue, "Insight")
 			if err != nil {
 				return err
 			}
@@ -147,7 +142,7 @@ func DeactivateInsight(client *jira.Client) error {
 			continue
 		}
 
-		userEmail, err := issue.GetUserEmail(client, pi.Key)
+		userEmail, err := issue.GetUserEmail(client, parentIssue.Key)
 		if err != nil {
 			return err
 		}
@@ -159,16 +154,22 @@ func DeactivateInsight(client *jira.Client) error {
 			return fmt.Errorf("failed to get user by email: %w", err)
 		}
 
+		if user == nil {
+			fmt.Printf("couldn't find user %v", userEmail)
+			unresolved = append(unresolved, di)
+			continue
+		}
+
 		laptops, err := insight.GetUserLaptops(client, user)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("user %v has %v laptops\n", userEmail, len(laptops.ObjectEntries))
+		fmt.Printf("user %v has %v laptops\n", userEmail, len(laptops))
 
 		var category string
 
-		if len(laptops.ObjectEntries) > 0 {
+		if len(laptops) > 0 {
 			category = "Corporate laptop"
 		} else {
 			category = "BYOD"
@@ -186,7 +187,7 @@ func DeactivateInsight(client *jira.Client) error {
 			panic(err)
 		}
 
-		deactivationSubtask, err := issue.GetSubtaskByComponent(client, &pi, "Insight")
+		deactivationSubtask, err := issue.GetSubtaskByComponent(client, parentIssue, "Insight")
 		if err != nil {
 			panic(err)
 		}
@@ -199,6 +200,13 @@ func DeactivateInsight(client *jira.Client) error {
 		_, err = issue.Close(client, deactivationIssue)
 		if err != nil {
 			panic(err)
+		}
+	}
+
+	if len(unresolved) > 0 {
+		fmt.Print("unresolved issues:\n")
+		for i, ui := range unresolved {
+			fmt.Printf("%v. %v", i, ui.Key)
 		}
 	}
 

@@ -15,7 +15,7 @@ const ISC_ATTRIBUTE_ID = 879
 const NAME_ATTRIBUTE_ID = 880
 const SERIAL_ATTRIBUTE_ID = 889
 
-func GenerateObjectDocument(object *types.InsightObject) (*types.DismissalDocument, error) {
+func GenerateObjectDocument(object *types.ObjectEntry) (*types.DismissalDocument, error) {
 	document := new(types.DismissalDocument)
 
 	for _, attribute := range object.Attributes {
