@@ -2,17 +2,27 @@ package types
 
 import "time"
 
-type DismissalDocument struct {
-	Template string
-	Serial   string
-	Isc      string
-	Name     string
-	Date     string
-	Boss     string
-	Lead     string
-	Flaws    string
+type DismissalRecord struct {
+	ISC      string
+	Flaw     string
 	Decision string
-	ID       int
+}
+
+type LaptopDescription struct {
+	Serial      string
+	ISC         string
+	Name        string
+	InventoryID string
+	Cost        string
+}
+
+type DismissalDocument struct {
+	*DismissalRecord
+	*LaptopDescription
+	Date string
+	Boss string
+	Lead string
+	ID   int
 }
 
 type InsightUserAttributesPayload struct {
@@ -111,6 +121,7 @@ type ObjectAttributeValues struct {
 }
 type Attributes struct {
 	ID                    int                     `json:"id"`
+	ObjectTypeAttribute   ObjectTypeAttribute     `json:"objectTypeAttribute,omitempty"`
 	ObjectTypeAttributeID int                     `json:"objectTypeAttributeId"`
 	ObjectAttributeValues []ObjectAttributeValues `json:"objectAttributeValues"`
 	ObjectID              int                     `json:"objectId"`

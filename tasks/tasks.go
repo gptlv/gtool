@@ -6,31 +6,18 @@ import (
 	"main/dismissal"
 	"main/insight"
 	"main/issue"
-	"time"
 
 	"github.com/andygrunwald/go-jira"
-	"github.com/goodsign/monday"
 )
 
-type LaptopDescription struct {
-	Name   string
-	Isc    string
-	Serial string
-	Cost   string
-}
-
 func GetUserLaptopDescription(client *jira.Client) error {
-	const ISC_ATTRIBUTE_ID = 879
-	const NAME_ATTRIBUTE_ID = 880
-	const SERIAL_ATTRIBUTE_ID = 889
-	const COST_ATTRIBUTE_ID = 4184
-
 	var email string
+
 	fmt.Print("enter user's email: ")
 	fmt.Scanln(&email)
 
 	if email == "" {
-		panic(errors.New("empty email"))
+		return errors.New("empty email")
 	}
 
 	user, err := insight.GetUserByEmail(client, email)
@@ -38,50 +25,29 @@ func GetUserLaptopDescription(client *jira.Client) error {
 		return fmt.Errorf("failed to get user by email: %w", err)
 	}
 
-	entries, err := insight.GetUserLaptops(client, user)
+	laptops, err := insight.GetUserLaptops(client, user)
 	if err != nil {
 		return fmt.Errorf("failed to get user laptops: %w", err)
 	}
 
-	if len(entries) > 1 {
+	if len(laptops) > 1 {
 		fmt.Printf("!!!\nuser has more than one laptop\n!!!\n")
 	}
 
-	var name, isc, serial, cost string
-	var res []LaptopDescription
-
-	for _, entry := range entries {
-		d := new(LaptopDescription)
-		for _, attribute := range entry.Attributes {
-			attributeValue := attribute.ObjectAttributeValues[0].Value
-
-			switch attribute.ObjectTypeAttributeID {
-			case NAME_ATTRIBUTE_ID:
-				name = attributeValue
-				d.Name = name
-			case ISC_ATTRIBUTE_ID:
-				isc = attributeValue
-				d.Isc = isc
-			case SERIAL_ATTRIBUTE_ID:
-				serial = attributeValue
-				d.Serial = serial
-			case COST_ATTRIBUTE_ID:
-				cost = attributeValue
-				d.Cost = cost
-			}
+	for _, laptop := range laptops {
+		d, err := insight.GetLaptopDescription(client, &laptop)
+		if err != nil {
+			return fmt.Errorf("failed to get laptop description: %w", err)
 		}
-		res = append(res, *d)
-	}
 
-	PrintLaptopDescription(res)
+		err = insight.PrintLaptopDescription(d)
+		if err != nil {
+			return fmt.Errorf("failed to print laptop description: %w", err)
+		}
+
+	}
 
 	return nil
-}
-
-func PrintLaptopDescription(description []LaptopDescription) {
-	for _, d := range description {
-		fmt.Printf("\nНоутбук %s\n %s \n %s \n\n %s \n\n", d.Name, d.Isc, d.Serial, d.Cost)
-	}
 }
 
 func DeactivateInsight(client *jira.Client) error {
@@ -213,57 +179,52 @@ func DeactivateInsight(client *jira.Client) error {
 	return nil
 }
 
-func GenerateDismissalDocuments(client *jira.Client, ISC string) error {
-	const boss = "Козлов А.Ю."
-	const lead = "Степанов А.С."
-
-	var templateNames = []string{"record", "commitee", "dismissal"}
-
-	laptop, err := insight.GetObjectByISC(client, ISC)
+func CreateDocuments(client *jira.Client, filePath string) error {
+	csv, err := dismissal.ReadCsvFile(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to get object by isc: %w", err)
+		return fmt.Errorf("failed to read csv file: %w", err)
 	}
 
-	document, err := dismissal.GenerateObjectDocument(laptop)
+	dismissalRecords, err := dismissal.CreateDismissalRecords(csv)
 	if err != nil {
-		return fmt.Errorf("failed to generate object document: %w", err)
+		return fmt.Errorf("failed to create dismissal records: %w", err)
 	}
 
-	t := time.Now()
-	layout := "2 January 2006"
-	date := monday.Format(t, layout, monday.LocaleRuRU)
+	for _, record := range dismissalRecords {
+		templateNames := []string{"commitee", "dismissal", "record"}
 
-	document.Date = date
-	document.Boss = boss
-	document.Lead = lead
-	document.Flaws = "none"
-	document.Decision = "burn"
-	document.ID = 250
-
-	// doc := &types.DismissalDocument{
-	// 	Template: "record.html",
-	// 	Serial:   "1337",
-	// 	Name:     "макбук))",
-	// 	Isc:      "isc-228",
-	// 	Date:     "14 Апреля 2024",
-	// 	ID:       250,
-	// 	Boss:     boss,
-	// 	Lead:     lead,
-	// 	Flaws:    "none",
-	// 	Decision: "burn",
-	// }
-
-	// template, err := dismissal.GenerateTemplate(document)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	for _, name := range templateNames {
-		document.Template = name
-
-		err = dismissal.GeneratePDF(document)
+		dismissalDocument, err := dismissal.CreateDismissalDocument(client, &record)
 		if err != nil {
-			return fmt.Errorf("failed to generate PDF: %w", err)
+			return fmt.Errorf("failed to generate dismissal document: %w", err)
+		}
+
+		dirPath, err := dismissal.CreateOutputDirectory(dismissalDocument.LaptopDescription.ISC)
+		if err != nil {
+			return fmt.Errorf("failed to create output directory: %w", err)
+		}
+
+		for _, templateName := range templateNames {
+			template, err := dismissal.CreateTemplate(dismissalDocument, templateName)
+			if err != nil {
+				return fmt.Errorf("failed to create a template %v: %w", templateName, err)
+			}
+
+			object, err := dismissal.CreateObjectFromTemplate(template)
+			if err != nil {
+				return fmt.Errorf("failed to create object from template %v: %w", templateName, err)
+			}
+
+			file, err := dismissal.CreateFile(dirPath, templateName, "pdf")
+			if err != nil {
+				return fmt.Errorf("failed to create file")
+			}
+			defer file.Close()
+
+			err = dismissal.CreatePDF(object, file)
+			if err != nil {
+				return fmt.Errorf("failed to generate pdf: %w", err)
+			}
+
 		}
 
 	}

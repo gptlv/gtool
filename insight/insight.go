@@ -14,6 +14,12 @@ const USER_CATEGORY_ATTRIBUTE_ID = 10209
 const USER_EMAIL_ATTRIBUTE_ID = 2874
 const USER_STATUS_DISABLE_VALUE = 100
 
+const ISC_ATTRIBUTE_ID = 879
+const NAME_ATTRIBUTE_ID = 880
+const SERIAL_ATTRIBUTE_ID = 889
+const COST_ATTRIBUTE_ID = 4184
+const INVENTORY_ID_ATTRIBUTE_ID = 932
+
 var userAttributePayloadBody = `{
 	"attributes": [
 	{
@@ -32,11 +38,13 @@ var endpoints = struct {
 	GetUserByEmail      string
 	GetObjectByISC      string
 	GetAttachments      string
+	GetAttributes       string
 }{
 	"rest/insight/1.0/iql/objects?iql=object+having+outboundReferences(Key+=+%v)+and+objectType+=+Laptops",
 	"rest/insight/1.0/iql/objects?iql=Email=%v&objectSchemaId=41", // 41 -- IT SD CMDB
 	"rest/insight/1.0/object/%v/",
 	"rest/insight/1.0/attachments/object/%v",
+	"rest/insight/1.0/object/%v/attributes",
 }
 
 func GetObjectByISC(client *jira.Client, ISC string) (*types.ObjectEntry, error) {
@@ -176,6 +184,44 @@ func GetUserLaptops(client *jira.Client, user *types.ObjectEntry) ([]types.Objec
 	}
 
 	return entries.ObjectEntries, nil
+}
+
+func GetLaptopDescription(client *jira.Client, laptop *types.ObjectEntry) (*types.LaptopDescription, error) {
+	if laptop == nil {
+		return nil, fmt.Errorf("empty laptop")
+	}
+
+	d := new(types.LaptopDescription)
+
+	for _, attribute := range laptop.Attributes {
+		attributeValue := attribute.ObjectAttributeValues[0].Value
+
+		switch attribute.ObjectTypeAttributeID {
+		case NAME_ATTRIBUTE_ID:
+			d.Name = attributeValue
+		case ISC_ATTRIBUTE_ID:
+			d.ISC = attributeValue
+		case SERIAL_ATTRIBUTE_ID:
+			d.Serial = attributeValue
+		case COST_ATTRIBUTE_ID:
+			d.Cost = attributeValue
+		case INVENTORY_ID_ATTRIBUTE_ID:
+			d.InventoryID = attributeValue
+		}
+	}
+
+	return d, nil
+}
+
+func PrintLaptopDescription(description *types.LaptopDescription) error {
+	if description == nil {
+		return fmt.Errorf("empty description")
+	}
+
+	fmt.Printf("\nНоутбук %s\n %s \n %s \n\n %s \n\n", description.Name, description.ISC, description.Serial, description.Cost)
+
+	return nil
+
 }
 
 func GetUserEmail(user *types.ObjectEntry) string {

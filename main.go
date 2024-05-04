@@ -26,17 +26,22 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// err = tasks.DeactivateInsight(client)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	err = tasks.GetUserLaptopDescription(client)
+	err = tasks.DeactivateInsight(client)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// err = tasks.GenerateDismissalDocuments(client, "ISC-192756")
+	// err = tasks.GetUserLaptopDescription(client)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// if err := pdf.Init(); err != nil {
+	// 	log.Fatal(fmt.Errorf("failed to initialize pdf: %w", err))
+	// }
+	// defer pdf.Destroy()
+
+	// err = tasks.CreateDocuments(client, "info.csv")
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
