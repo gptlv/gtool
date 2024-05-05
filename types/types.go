@@ -3,6 +3,7 @@ package types
 import "time"
 
 type DismissalRecord struct {
+	ID       string
 	ISC      string
 	Flaw     string
 	Decision string
@@ -22,7 +23,6 @@ type DismissalDocument struct {
 	Date string
 	Boss string
 	Lead string
-	ID   int
 }
 
 type InsightUserAttributesPayload struct {

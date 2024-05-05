@@ -2,13 +2,11 @@ package dismissal
 
 import (
 	"bytes"
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"main/insight"
 	"main/types"
 	"os"
-	"path/filepath"
 	"text/template"
 	"time"
 
@@ -20,22 +18,6 @@ import (
 const ISC_ATTRIBUTE_ID = 879
 const NAME_ATTRIBUTE_ID = 880
 const SERIAL_ATTRIBUTE_ID = 889
-
-func ReadCsvFile(filePath string) ([][]string, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read input file %v: %w", filePath, err)
-	}
-	defer f.Close()
-
-	csvReader := csv.NewReader(f)
-	data, err := csvReader.ReadAll()
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse file as CSV for %v: %w", filePath, err)
-	}
-
-	return data, nil
-}
 
 func CreateDismissalRecords(data [][]string) ([]types.DismissalRecord, error) {
 	if data == nil {
@@ -52,14 +34,18 @@ func CreateDismissalRecords(data [][]string) ([]types.DismissalRecord, error) {
 
 		for j, field := range line {
 			if j == 0 {
-				record.ISC = field
+				record.ID = field
 			}
 
 			if j == 1 {
-				record.Flaw = field
+				record.ISC = field
 			}
 
 			if j == 2 {
+				record.Flaw = field
+			}
+
+			if j == 3 {
 				record.Decision = field
 			}
 		}
@@ -78,8 +64,8 @@ func CreateDismissalDocument(client *jira.Client, dismissalRecord *types.Dismiss
 	document := new(types.DismissalDocument)
 	document.DismissalRecord = dismissalRecord
 
-	const boss = "Козлов А.Ю."   // move to .env
-	const lead = "Степанов А.С." //
+	boss := os.Getenv("BOSS")
+	lead := os.Getenv("LEAD")
 
 	laptop, err := insight.GetObjectByISC(client, dismissalRecord.ISC)
 	if err != nil {
@@ -100,7 +86,6 @@ func CreateDismissalDocument(client *jira.Client, dismissalRecord *types.Dismiss
 	document.Date = date
 	document.Boss = boss
 	document.Lead = lead
-	document.ID = 250
 
 	return document, nil
 }
@@ -163,38 +148,4 @@ func CreatePDF(object *pdf.Object, outputFile *os.File) error {
 	}
 
 	return nil
-}
-
-func CreateOutputDirectory(folderName string) (string, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %w", err)
-	}
-
-	dirPath := filepath.Join(cwd, "output", fmt.Sprintf("%v", folderName))
-	err = os.MkdirAll(dirPath, os.ModePerm) // Use MkdirAll to create parent directories if they don't exist
-	if err != nil {
-		return "", fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	return dirPath, nil
-}
-
-func CreateFile(dirPath string, fileName string, extension string) (*os.File, error) {
-	if fileName == "" {
-		return nil, fmt.Errorf("empty file name")
-	}
-
-	if extension == "" {
-		return nil, fmt.Errorf("empty file extension")
-	}
-
-	filePath := filepath.Join(dirPath, fmt.Sprintf("%v.%v", fileName, extension))
-
-	file, err := os.Create(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	return file, nil
 }

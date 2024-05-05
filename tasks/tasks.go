@@ -6,6 +6,7 @@ import (
 	"main/dismissal"
 	"main/insight"
 	"main/issue"
+	"main/util"
 
 	"github.com/andygrunwald/go-jira"
 )
@@ -180,7 +181,7 @@ func DeactivateInsight(client *jira.Client) error {
 }
 
 func CreateDocuments(client *jira.Client, filePath string) error {
-	csv, err := dismissal.ReadCsvFile(filePath)
+	csv, err := util.ReadCsvFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read csv file: %w", err)
 	}
@@ -198,7 +199,7 @@ func CreateDocuments(client *jira.Client, filePath string) error {
 			return fmt.Errorf("failed to generate dismissal document: %w", err)
 		}
 
-		dirPath, err := dismissal.CreateOutputDirectory(dismissalDocument.LaptopDescription.ISC)
+		dirPath, err := util.CreateOutputDirectory(dismissalDocument.LaptopDescription.ISC)
 		if err != nil {
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
@@ -214,7 +215,7 @@ func CreateDocuments(client *jira.Client, filePath string) error {
 				return fmt.Errorf("failed to create object from template %v: %w", templateName, err)
 			}
 
-			file, err := dismissal.CreateFile(dirPath, templateName, "pdf")
+			file, err := util.CreateFile(dirPath, templateName, "pdf")
 			if err != nil {
 				return fmt.Errorf("failed to create file")
 			}
@@ -224,9 +225,7 @@ func CreateDocuments(client *jira.Client, filePath string) error {
 			if err != nil {
 				return fmt.Errorf("failed to generate pdf: %w", err)
 			}
-
 		}
-
 	}
 
 	return nil
