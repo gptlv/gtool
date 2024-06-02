@@ -49,6 +49,27 @@ func (h *TaskHandler) PrintLaptopDescription() error {
 	return nil
 }
 
+func (h *TaskHandler) AssignAllDeactivateInsightIssuesToMe() error {
+	jql := ""
+	// jql := `project = SD and assignee = empty and summary ~ "Деактивировать в Insight" and resolution = unresolved and "Postpone until" < endOfWeek()`
+
+	insightIssues, err := h.issueService.GetAll(jql)
+	if err != nil {
+		return fmt.Errorf("failed to get all insight issues to assign: %w", err)
+	}
+
+	for _, insightIssue := range insightIssues {
+		_, err = h.issueService.AssignIssueToMe(&insightIssue)
+		fmt.Printf("assigning [%v] %v to self\n", insightIssue.Key, insightIssue.Fields.Summary)
+		if err != nil {
+			return fmt.Errorf("failed to assign issue to me: %w", err)
+		}
+
+	}
+
+	return nil
+}
+
 func (h *TaskHandler) DeactivateInsight() error {
 	jql := `project = "IT Support" AND assignee = currentUser() AND status = open AND summary ~ "Деактивировать в Insight"`
 
@@ -117,7 +138,7 @@ func (h *TaskHandler) DeactivateInsight() error {
 			return err
 		}
 
-		fmt.Printf("found a user %v\n", userEmail)
+		fmt.Printf("found a user email %v\n", userEmail)
 
 		user, err := h.objectService.GetUserByEmail(userEmail)
 		if err != nil {
@@ -125,7 +146,7 @@ func (h *TaskHandler) DeactivateInsight() error {
 		}
 
 		if user == nil {
-			fmt.Printf("couldn't find user %v", userEmail)
+			fmt.Printf("couldn't find insight user %v\n", userEmail)
 			unresolved = append(unresolved, di)
 			continue
 		}
@@ -173,12 +194,19 @@ func (h *TaskHandler) DeactivateInsight() error {
 		if err != nil {
 			return fmt.Errorf("failed to close deactivation issue: %w", err)
 		}
+
+		fmt.Printf("adding internal comment to %v\n", deactivationIssue.Key)
+		_, err = h.issueService.WriteInternalComment(deactivationIssue, "[https://wiki.sbmt.io/x/sPjivQ]")
+		if err != nil {
+			return fmt.Errorf("failed to write comment: %w", err)
+		}
 	}
 
 	if len(unresolved) > 0 {
 		fmt.Print("unresolved issues:\n")
 		for i, ui := range unresolved {
-			fmt.Printf("%v. %v", i, ui.Key)
+			fmt.Printf("%v. ", i+1)
+			h.issueService.PrintIssue(&ui)
 		}
 	}
 

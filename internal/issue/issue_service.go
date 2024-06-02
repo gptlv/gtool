@@ -166,16 +166,53 @@ func (s *issueService) BlockByIssue(currentIssue *jira.Issue, blockingIssue *jir
 	return updatedIssue, nil
 }
 
+func (s *issueService) AssignIssueToMe(issue *jira.Issue) (*jira.Issue, error) {
+	users, _, err := s.client.User.Find("", jira.WithUsername("potlov.ga"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	me := &users[0]
+
+	_, err = s.client.Issue.UpdateAssignee(issue.ID, me)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update assignee: %w", err)
+	}
+
+	updatedIssue, err := s.GetByID(issue.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get issue: %w", err)
+	}
+
+	return updatedIssue, nil
+
+}
+
 func (s *issueService) PrintIssue(issue *jira.Issue) {
 	fmt.Printf("%s (%s/%s): %+v\n", issue.Key, issue.Fields.Type.Name, issue.Fields.Priority.Name, issue.Fields.Summary)
 }
 
-func (s *issueService) WriteComment(issue *jira.Issue, commentText string) (*jira.Comment, error) {
-	comment := &jira.Comment{Body: commentText}
+func (s *issueService) WriteInternalComment(issue *jira.Issue, commentText string) (*jira.Comment, error) {
+	body := fmt.Sprintf(internalCommentPayloadBody, commentText)
+	payload := new(InternalCommentPayload)
 
-	comment, _, err := s.client.Issue.AddComment(issue.ID, comment)
+	err := json.Unmarshal([]byte(body), payload)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("rest/api/2/issue/%v/comment", issue.ID)
+
+	req, err := s.client.NewRequest("POST", endpoint, payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	comment := new(jira.Comment)
+	resp, err := s.client.Do(req, comment)
+	if err != nil {
+		fmt.Printf("%+v", resp.Response)
+		return nil, fmt.Errorf("failed to do request: %w", err)
 	}
 
 	return comment, nil

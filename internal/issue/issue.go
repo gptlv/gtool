@@ -11,9 +11,23 @@ type IssueService interface {
 	Close(issue *jira.Issue) (*jira.Issue, error)
 	BlockByIssue(currentIssue *jira.Issue, blockingIssue *jira.Issue) (*jira.Issue, error)
 	PrintIssue(issue *jira.Issue)
+	AssignIssueToMe(issue *jira.Issue) (*jira.Issue, error)
+	WriteInternalComment(issue *jira.Issue, commentText string) (*jira.Comment, error)
 }
 
 const EMAIL_FIELD_KEY = "customfield_10145"
+
+var internalCommentPayloadBody = `{
+	"body": "%s",
+	"properties": [
+	  {
+		"key": "sd.public.comment",
+		"value": {
+		   "internal": true
+		}
+	  }
+	]
+ }`
 
 var blockByIssuePayloadBody = `
 {
@@ -52,4 +66,14 @@ type BlockByIssuePayload struct {
 			} `json:"add"`
 		} `json:"issuelinks"`
 	} `json:"update"`
+}
+
+type InternalCommentPayload struct {
+	Body       string `json:"body"`
+	Properties []struct {
+		Key   string `json:"key"`
+		Value struct {
+			Internal bool `json:"internal"`
+		} `json:"value"`
+	} `json:"properties"`
 }
