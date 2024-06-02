@@ -166,15 +166,6 @@ func (s *issueService) BlockByIssue(currentIssue *jira.Issue, blockingIssue *jir
 	return updatedIssue, nil
 }
 
-// func OutputResponse(issues []jira.Issue, resp *jira.Response) {
-// 	fmt.Printf("Call to %s\n", resp.Request.URL)
-// 	fmt.Printf("Response Code: %d\n", resp.StatusCode)
-// 	fmt.Println("==================================")
-// 	for _, i := range issues {
-// 		PrintIssue(&i)
-// 	}
-// }
-
 func (s *issueService) PrintIssue(issue *jira.Issue) {
 	fmt.Printf("%s (%s/%s): %+v\n", issue.Key, issue.Fields.Type.Name, issue.Fields.Priority.Name, issue.Fields.Summary)
 }

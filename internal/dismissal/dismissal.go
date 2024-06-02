@@ -6,10 +6,6 @@ import (
 	pdf "github.com/adrg/go-wkhtmltopdf"
 )
 
-// const ISC_ATTRIBUTE_ID = 879
-// const NAME_ATTRIBUTE_ID = 880
-// const SERIAL_ATTRIBUTE_ID = 889
-
 type DismissalRecord struct {
 	//comes from csv
 	ID       string

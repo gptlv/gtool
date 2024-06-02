@@ -242,23 +242,6 @@ func (s *objectService) GetUserLaptops(user *Object) (*GetObjectRes, error) {
 		return nil, fmt.Errorf("no such user")
 	}
 
-	// getUserByEmailQuery := fmt.Sprintf("Email=%v", email)
-
-	// res, err := s.GetAll(getUserByEmailQuery)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed go get user by email: %w", err)
-	// }
-
-	// if len(res.ObjectEntries) == 0 {
-	// 	return nil, fmt.Errorf("no user with such email: %v", email)
-	// }
-
-	// if len(res.ObjectEntries) > 1 {
-	// 	return nil, fmt.Errorf("found multiple users with the same email %v", email)
-	// }
-
-	// user := res.ObjectEntries[0]
-
 	getUsersLaptopsQuery := fmt.Sprintf("object+having+outboundReferences(Key+=+%v)+and+objectType+=+Laptops", user.ObjectKey)
 
 	laptops, err := s.GetAll(getUsersLaptopsQuery)

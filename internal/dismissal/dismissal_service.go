@@ -13,43 +13,6 @@ import (
 	"github.com/goodsign/monday"
 )
 
-// func CreateDismissalRecords(data [][]string) ([]DismissalRecord, error) {
-// 	if data == nil {
-// 		return nil, errors.New("empty data")
-// 	}
-// 	var records []DismissalRecord
-
-// 	for i, line := range data {
-// 		if i == 0 {
-// 			continue
-// 		}
-
-// 		var record DismissalRecord
-
-// 		for j, field := range line {
-// 			if j == 0 {
-// 				record.ID = field
-// 			}
-
-// 			if j == 1 {
-// 				record.ISC = field
-// 			}
-
-// 			if j == 2 {
-// 				record.Flaw = field
-// 			}
-
-// 			if j == 3 {
-// 				record.Decision = field
-// 			}
-// 		}
-
-// 		records = append(records, record)
-// 	}
-
-// 	return records, nil
-// }
-
 type dismissalService struct {
 }
 
@@ -91,40 +54,6 @@ func (s *dismissalService) CreateDismissalRecord(row []string) (*DismissalRecord
 
 	return record, nil
 }
-
-// func CreateDismissalDocument(client *jira.Client, dismissalRecord *DismissalRecord) (*DismissalDocument, error) {
-// 	if dismissalRecord == nil {
-// 		return nil, errors.New("empty dismissal record")
-// 	}
-
-// 	document := new(DismissalDocument)
-// 	document.DismissalRecord = dismissalRecord
-
-// 	boss := os.Getenv("BOSS")
-// 	lead := os.Getenv("LEAD")
-
-// 	laptop, err := insight.GetObjectByISC(client, dismissalRecord.ISC)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to get object by isc: %w", err)
-// 	}
-
-// 	d, err := tasks.GetLaptopDescription(laptop)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to get laptop description: %w", err)
-// 	}
-
-// 	document.LaptopDescription = d
-
-// 	t := time.Now()
-// 	layout := "2 January 2006"
-// 	date := monday.Format(t, layout, monday.LocaleRuRU)
-
-// 	document.Date = date
-// 	document.Boss = boss
-// 	document.Lead = lead
-
-// 	return document, nil
-// }
 
 func (s *dismissalService) CreateTemplate(record *DismissalRecord, templateName string) ([]byte, error) {
 	filepath := fmt.Sprintf("templates/%v.html", templateName)
