@@ -1,71 +1,24 @@
-package types
+package object
 
-import "time"
+import (
+	"time"
+)
 
-type DismissalRecord struct {
-	ID       string
-	ISC      string
-	Flaw     string
-	Decision string
+type ObjectService interface {
+	GetAll(iql string) (*GetObjectRes, error)
+	Update(payload *Object) (*Object, error)
+	GetByISC(ISC string) (*Object, error)
+	GetAttachments(object *Object) ([]Attachment, error)
+	DisableUser(user *Object) (*Object, error)
+	SetUserCategory(user *Object, category string) (*Object, error)
+	GetUserEmail(user *Object) string
+	GetUserLaptops(user *Object) (*GetObjectRes, error)
+	GetUserByEmail(email string) (*Object, error)
+	GetLaptopDescription(laptop *Object) (*LaptopDescription, error)
 }
 
-type LaptopDescription struct {
-	Serial      string
-	ISC         string
-	Name        string
-	InventoryID string
-	Cost        string
-}
-
-type DismissalDocument struct {
-	*DismissalRecord
-	*LaptopDescription
-	Date string
-	Boss string
-	Lead string
-}
-
-type InsightUserAttributesPayload struct {
-	Attributes []struct {
-		ObjectTypeAttributeID int `json:"objectTypeAttributeId"`
-		ObjectAttributeValues []struct {
-			Value string `json:"value"`
-		} `json:"objectAttributeValues"`
-	} `json:"attributes"`
-}
-
-type InsightAttachment struct {
-	ID            int       `json:"id"`
-	Author        string    `json:"author"`
-	MimeType      string    `json:"mimeType"`
-	Filename      string    `json:"filename"`
-	Filesize      string    `json:"filesize"`
-	Created       time.Time `json:"created"`
-	Comment       string    `json:"comment"`
-	CommentOutput string    `json:"commentOutput"`
-	URL           string    `json:"url"`
-}
-
-type BlockByIssuePayload struct {
-	Transition struct {
-		ID string `json:"id"`
-	} `json:"transition"`
-	Update struct {
-		Issuelinks []struct {
-			Add struct {
-				Type struct {
-					Name string `json:"name"`
-				} `json:"type"`
-				InwardIssue struct {
-					Key string `json:"key"`
-				} `json:"inwardIssue"`
-			} `json:"add"`
-		} `json:"issuelinks"`
-	} `json:"update"`
-}
-
-type ObjectSearchRes struct {
-	ObjectEntries         []ObjectEntry         `json:"objectEntries"`
+type GetObjectRes struct {
+	ObjectEntries         []Object              `json:"objectEntries"`
 	ObjectTypeAttributes  []ObjectTypeAttribute `json:"objectTypeAttributes"`
 	ObjectTypeID          int                   `json:"objectTypeId"`
 	ObjectTypeIsInherited bool                  `json:"objectTypeIsInherited"`
@@ -83,6 +36,22 @@ type ObjectSearchRes struct {
 	Iql                   string                `json:"iql"`
 	PageSize              int                   `json:"pageSize"`
 }
+
+type Object struct {
+	ID         int         `json:"id"`
+	Label      string      `json:"label"`
+	ObjectKey  string      `json:"objectKey"`
+	Avatar     Avatar      `json:"avatar"`
+	ObjectType ObjectType  `json:"objectType"`
+	Created    time.Time   `json:"created"`
+	Updated    time.Time   `json:"updated"`
+	HasAvatar  bool        `json:"hasAvatar"`
+	Timestamp  int64       `json:"timestamp"`
+	Attributes []Attribute `json:"attributes"`
+	Links      Links       `json:"_links"`
+	Name       string      `json:"name"`
+}
+
 type Avatar struct {
 	URL16    string `json:"url16"`
 	URL48    string `json:"url48"`
@@ -91,12 +60,7 @@ type Avatar struct {
 	URL288   string `json:"url288"`
 	ObjectID int    `json:"objectId"`
 }
-type Icon struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	URL16 string `json:"url16"`
-	URL48 string `json:"url48"`
-}
+
 type ObjectType struct {
 	ID                        int       `json:"id"`
 	Name                      string    `json:"name"`
@@ -113,64 +77,19 @@ type ObjectType struct {
 	AbstractObjectType        bool      `json:"abstractObjectType"`
 	ParentObjectTypeInherited bool      `json:"parentObjectTypeInherited"`
 }
-type ObjectAttributeValues struct {
-	Value          string `json:"value"`
-	DisplayValue   string `json:"displayValue"`
-	SearchValue    string `json:"searchValue"`
-	ReferencedType bool   `json:"referencedType"`
-}
-type Attributes struct {
+
+type Attribute struct {
 	ID                    int                     `json:"id"`
 	ObjectTypeAttribute   ObjectTypeAttribute     `json:"objectTypeAttribute,omitempty"`
 	ObjectTypeAttributeID int                     `json:"objectTypeAttributeId"`
 	ObjectAttributeValues []ObjectAttributeValues `json:"objectAttributeValues"`
 	ObjectID              int                     `json:"objectId"`
 }
+
 type Links struct {
 	Self string `json:"self"`
 }
-type ObjectEntry struct {
-	ID         int          `json:"id"`
-	Label      string       `json:"label"`
-	ObjectKey  string       `json:"objectKey"`
-	Avatar     Avatar       `json:"avatar"`
-	ObjectType ObjectType   `json:"objectType"`
-	Created    time.Time    `json:"created"`
-	Updated    time.Time    `json:"updated"`
-	HasAvatar  bool         `json:"hasAvatar"`
-	Timestamp  int64        `json:"timestamp"`
-	Attributes []Attributes `json:"attributes"`
-	Links      Links        `json:"_links"`
-	Name       string       `json:"name"`
-}
-type DefaultType struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-type ReferenceType struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Color       string `json:"color"`
-	URL16       string `json:"url16"`
-	Removable   bool   `json:"removable"`
-}
-type ReferenceObjectType struct {
-	ID                        int       `json:"id"`
-	Name                      string    `json:"name"`
-	Type                      int       `json:"type"`
-	Description               string    `json:"description"`
-	Icon                      Icon      `json:"icon"`
-	Position                  int       `json:"position"`
-	Created                   time.Time `json:"created"`
-	Updated                   time.Time `json:"updated"`
-	ObjectCount               int       `json:"objectCount"`
-	ParentObjectTypeID        int       `json:"parentObjectTypeId"`
-	ObjectSchemaID            int       `json:"objectSchemaId"`
-	Inherited                 bool      `json:"inherited"`
-	AbstractObjectType        bool      `json:"abstractObjectType"`
-	ParentObjectTypeInherited bool      `json:"parentObjectTypeInherited"`
-}
+
 type ObjectTypeAttribute struct {
 	ID                      int                 `json:"id"`
 	Name                    string              `json:"name"`
@@ -200,4 +119,78 @@ type ObjectTypeAttribute struct {
 	ReferenceType           ReferenceType       `json:"referenceType,omitempty"`
 	ReferenceObjectTypeID   int                 `json:"referenceObjectTypeId,omitempty"`
 	ReferenceObjectType     ReferenceObjectType `json:"referenceObjectType,omitempty"`
+}
+
+type ReferenceType struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Color       string `json:"color"`
+	URL16       string `json:"url16"`
+	Removable   bool   `json:"removable"`
+}
+
+type ReferenceObjectType struct {
+	ID                        int       `json:"id"`
+	Name                      string    `json:"name"`
+	Type                      int       `json:"type"`
+	Description               string    `json:"description"`
+	Icon                      Icon      `json:"icon"`
+	Position                  int       `json:"position"`
+	Created                   time.Time `json:"created"`
+	Updated                   time.Time `json:"updated"`
+	ObjectCount               int       `json:"objectCount"`
+	ParentObjectTypeID        int       `json:"parentObjectTypeId"`
+	ObjectSchemaID            int       `json:"objectSchemaId"`
+	Inherited                 bool      `json:"inherited"`
+	AbstractObjectType        bool      `json:"abstractObjectType"`
+	ParentObjectTypeInherited bool      `json:"parentObjectTypeInherited"`
+}
+
+type DefaultType struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+type Icon struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	URL16 string `json:"url16"`
+	URL48 string `json:"url48"`
+}
+
+type ObjectAttributeValues struct {
+	Value          string `json:"value"`
+	DisplayValue   string `json:"displayValue"`
+	SearchValue    string `json:"searchValue"`
+	ReferencedType bool   `json:"referencedType"`
+}
+
+type Attachment struct {
+	ID            int       `json:"id"`
+	Author        string    `json:"author"`
+	MimeType      string    `json:"mimeType"`
+	Filename      string    `json:"filename"`
+	Filesize      string    `json:"filesize"`
+	Created       time.Time `json:"created"`
+	Comment       string    `json:"comment"`
+	CommentOutput string    `json:"commentOutput"`
+	URL           string    `json:"url"`
+}
+
+type UserAttributesPayload struct {
+	Attributes []struct {
+		ObjectTypeAttributeID int `json:"objectTypeAttributeId"`
+		ObjectAttributeValues []struct {
+			Value string `json:"value"`
+		} `json:"objectAttributeValues"`
+	} `json:"attributes"`
+}
+
+type LaptopDescription struct {
+	Serial      string
+	ISC         string
+	Name        string
+	InventoryID string
+	Cost        string
 }
