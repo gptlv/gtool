@@ -7,6 +7,7 @@ import (
 	"main/internal/dismissal"
 	"main/internal/issue"
 	"main/internal/object"
+	"strings"
 	"time"
 
 	"github.com/andygrunwald/go-jira"
@@ -307,5 +308,66 @@ func (h *TaskHandler) ShowIssuesWithEmptyComponent() error {
 		time.Sleep(5 * time.Second)
 
 	}
+
+}
+
+func (h *TaskHandler) UpdateBlockTraineeIssue() error {
+	var issueKey string
+
+	fmt.Print("enter issue key: ")
+	fmt.Scanln(&issueKey)
+
+	issue, err := h.issueService.GetByID(issueKey)
+	if err != nil {
+		return fmt.Errorf("failed to get issue by key: %w", err)
+	}
+
+	var causingIssue *jira.Issue
+
+	issueLinks := issue.Fields.IssueLinks
+	for _, issueLink := range issueLinks {
+		if issueLink.Type.Inward == "is caused by" {
+			causingIssue, err = h.issueService.GetByID(issueLink.InwardIssue.ID)
+			if err != nil {
+				return fmt.Errorf("failed to get issue %v by id: %w", issueLink.InwardIssue.Key, err)
+			}
+		}
+	}
+
+	email := causingIssue.Fields.Unknowns["customfield_10356"].(string)
+	fmt.Printf("user email: %v\n", email)
+
+	for _, st := range issue.Fields.Subtasks {
+		subtaskIssue, err := h.issueService.GetByID(st.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get subtask %v: %w", st.Key, err)
+		}
+		h.issueService.PrintIssue(subtaskIssue)
+
+		currentSummary := strings.TrimSpace(subtaskIssue.Fields.Summary)
+
+		newSummary := currentSummary + " " + email
+
+		fmt.Printf("new summary: %v\n", newSummary)
+
+		type Fields struct {
+			Summary string `json:"summary" structs:"summary"`
+		}
+
+		c := map[string]interface{}{
+			"fields": Fields{
+				Summary: newSummary,
+			},
+		}
+
+		_, err = h.issueService.Update(subtaskIssue, c)
+		if err != nil {
+			return fmt.Errorf("failed to update summary for %v: %w", subtaskIssue.Key, err)
+		}
+
+		time.Sleep(3 * time.Second)
+	}
+
+	return nil
 
 }

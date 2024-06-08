@@ -26,6 +26,21 @@ func (s *issueService) GetAll(jql string) ([]jira.Issue, error) {
 	return issues, nil
 }
 
+func (s *issueService) Update(issue *jira.Issue, data map[string]interface{}) (*jira.Issue, error) {
+	_, err := s.client.Issue.UpdateIssue(issue.ID, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update issue %v: %w", issue.Key, err)
+	}
+
+	updatedIssue, err := s.GetByID(issue.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get updated issue %v: %w", updatedIssue.Key, err)
+	}
+
+	return updatedIssue, nil
+
+}
+
 func (s *issueService) GetParent(issue *jira.Issue) (*jira.Issue, error) {
 	parent := issue.Fields.Parent
 	parentIssue, _, err := s.client.Issue.Get(parent.ID, nil)

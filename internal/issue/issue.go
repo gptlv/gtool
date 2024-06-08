@@ -8,6 +8,7 @@ type IssueService interface {
 	GetByID(ID string) (*jira.Issue, error)
 	GetSubtaskByComponent(issue *jira.Issue, componentName string) (*jira.Subtasks, error)
 	GetUserEmail(issue *jira.Issue) (string, error)
+	Update(issue *jira.Issue, data map[string]interface{}) (*jira.Issue, error)
 	Close(issue *jira.Issue) (*jira.Issue, error)
 	BlockByIssue(currentIssue *jira.Issue, blockingIssue *jira.Issue) (*jira.Issue, error)
 	PrintIssue(issue *jira.Issue)
@@ -77,4 +78,10 @@ type InternalCommentPayload struct {
 			Internal bool `json:"internal"`
 		} `json:"value"`
 	} `json:"properties"`
+}
+
+type UpdateSummary struct {
+	Fields struct {
+		Summary string `json:"summary"`
+	} `json:"fields"`
 }

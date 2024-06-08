@@ -43,6 +43,7 @@ func main() {
 	fmt.Println("3) Get laptop description")
 	fmt.Println("4) Assign all deactivate insight issues to me")
 	fmt.Println("5) Show issues with empty component")
+	fmt.Println("6) Update block trainee cc issue")
 
 	var n int
 	for {
@@ -51,7 +52,7 @@ func main() {
 		fmt.Scanln(&input)
 
 		n, err = strconv.Atoi(input)
-		if err == nil && (1 <= n && n <= 5) {
+		if err == nil && (1 <= n && n <= 6) {
 			break
 		}
 		fmt.Println("Invalid choice.")
@@ -92,6 +93,13 @@ func main() {
 
 	if n == 5 {
 		err := th.ShowIssuesWithEmptyComponent()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if n == 6 {
+		err := th.UpdateBlockTraineeIssue()
 		if err != nil {
 			log.Fatal(err)
 		}
