@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/andygrunwald/go-jira"
+	"github.com/savioxavier/termlink"
 )
 
 type TaskHandler struct {
@@ -51,8 +52,8 @@ func (h *TaskHandler) PrintLaptopDescription() error {
 }
 
 func (h *TaskHandler) AssignAllDeactivateInsightIssuesToMe() error {
-	jql := ""
-	// jql := `project = SD and assignee = empty and summary ~ "Деактивировать в Insight" and resolution = unresolved and "Postpone until" < endOfWeek()`
+	// jql := ""
+	jql := `project = SD and assignee = empty and summary ~ "Деактивировать в Insight" and resolution = unresolved and "Postpone until" < endOfWeek()`
 
 	insightIssues, err := h.issueService.GetAll(jql)
 	if err != nil {
@@ -151,7 +152,7 @@ func (h *TaskHandler) DeactivateInsight() error {
 
 		if user == nil {
 			fmt.Printf("couldn't find insight user %v\n", userEmail)
-			commentText = "Нет пользователя в Insight"
+			commentText = "Пользователя нет в Insight"
 		} else {
 			getUserLaptopsRes, err := h.objectService.GetUserLaptops(user)
 			if err != nil {
@@ -285,4 +286,26 @@ func (h *TaskHandler) GenerateDismissalRecords() error {
 	}
 
 	return nil
+}
+
+func (h *TaskHandler) ShowIssuesWithEmptyComponent() error {
+	jql := `project = SD AND component = EMPTY AND assignee in (EMPTY) AND resolution = Unresolved and updated > startOfDay()`
+	for {
+		fmt.Print("\033[H\033[2J")
+		issues, err := h.issueService.GetAll(jql)
+		if err != nil {
+			return fmt.Errorf("failed to get all issues with empty component: %w", err)
+		}
+
+		for _, issue := range issues {
+			summary := h.issueService.Summarize(&issue)
+			issueLink := fmt.Sprintf("https://jira.sbmt.io/browse/%v", issue.Key)
+
+			fmt.Println(termlink.Link(summary, issueLink))
+		}
+
+		time.Sleep(5 * time.Second)
+
+	}
+
 }

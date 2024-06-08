@@ -217,3 +217,7 @@ func (s *issueService) WriteInternalComment(issue *jira.Issue, commentText strin
 
 	return comment, nil
 }
+
+func (s *issueService) Summarize(issue *jira.Issue) string {
+	return fmt.Sprintf("[%s] %s", issue.Key, issue.Fields.Summary)
+}

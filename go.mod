@@ -15,5 +15,6 @@ require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/savioxavier/termlink v1.3.0 // indirect
 	github.com/trivago/tgo v1.0.7 // indirect
 )

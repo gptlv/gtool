@@ -37,10 +37,12 @@ func main() {
 
 	th := task.NewTaskHandler(&is, &os, &ds)
 
+	fmt.Print("\033[H\033[2J")
 	fmt.Println("1) Deactivate insight")
 	fmt.Println("2) Generate dismissal documents")
 	fmt.Println("3) Get laptop description")
 	fmt.Println("4) Assign all deactivate insight issues to me")
+	fmt.Println("5) Show issues with empty component")
 
 	var n int
 	for {
@@ -49,7 +51,7 @@ func main() {
 		fmt.Scanln(&input)
 
 		n, err = strconv.Atoi(input)
-		if err == nil && (1 <= n && n <= 4) {
+		if err == nil && (1 <= n && n <= 5) {
 			break
 		}
 		fmt.Println("Invalid choice.")
@@ -83,6 +85,13 @@ func main() {
 
 	if n == 4 {
 		err := th.AssignAllDeactivateInsightIssuesToMe()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if n == 5 {
+		err := th.ShowIssuesWithEmptyComponent()
 		if err != nil {
 			log.Fatal(err)
 		}

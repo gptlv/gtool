@@ -13,6 +13,7 @@ type IssueService interface {
 	PrintIssue(issue *jira.Issue)
 	AssignIssueToMe(issue *jira.Issue) (*jira.Issue, error)
 	WriteInternalComment(issue *jira.Issue, commentText string) (*jira.Comment, error)
+	Summarize(issue *jira.Issue) string
 }
 
 const EMAIL_FIELD_KEY = "customfield_10145"
