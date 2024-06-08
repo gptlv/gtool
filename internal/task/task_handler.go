@@ -7,6 +7,7 @@ import (
 	"main/internal/dismissal"
 	"main/internal/issue"
 	"main/internal/object"
+	"time"
 
 	"github.com/andygrunwald/go-jira"
 )
@@ -65,6 +66,8 @@ func (h *TaskHandler) AssignAllDeactivateInsightIssuesToMe() error {
 			return fmt.Errorf("failed to assign issue to me: %w", err)
 		}
 
+		time.Sleep(time.Second)
+
 	}
 
 	return nil
@@ -72,6 +75,7 @@ func (h *TaskHandler) AssignAllDeactivateInsightIssuesToMe() error {
 
 func (h *TaskHandler) DeactivateInsight() error {
 	jql := `project = "IT Support" AND assignee = currentUser() AND status = open AND summary ~ "Деактивировать в Insight"`
+	var unresolved []*jira.Issue
 
 	deactivationIssues, err := h.issueService.GetAll(jql)
 	if err != nil {
@@ -82,9 +86,9 @@ func (h *TaskHandler) DeactivateInsight() error {
 		return errors.New("no deactivation issues")
 	}
 
-	var unresolved []jira.Issue
-
 	for _, di := range deactivationIssues {
+		var commentText string
+
 		fmt.Print("found an issue: ")
 		h.issueService.PrintIssue(&di)
 		parentIssue, err := h.issueService.GetByID(di.Fields.Parent.ID)
@@ -95,32 +99,32 @@ func (h *TaskHandler) DeactivateInsight() error {
 		fmt.Print("found a parent issue: ")
 		h.issueService.PrintIssue(parentIssue)
 
-		ss, err := h.issueService.GetSubtaskByComponent(parentIssue, "Возврат оборудования")
+		deactivationSubtask, err := h.issueService.GetSubtaskByComponent(parentIssue, "Insight")
+		if err != nil {
+			return fmt.Errorf("failed to get subtask by component: %w", err)
+		}
+
+		deactivationIssue, err := h.issueService.GetByID(deactivationSubtask.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get deactivation issue by ID: %w", err)
+		}
+
+		subShipment, err := h.issueService.GetSubtaskByComponent(parentIssue, "Возврат оборудования")
 		if err != nil {
 			panic(err)
 		}
 
-		if ss.Fields.Status.Name != "Closed" {
-			fmt.Printf("parent issue %v has an incomplete subshipment task\n", parentIssue.Key)
-			//block deactivation issue by the aforementioned subtask
+		if subShipment.Fields.Status.Name != "Closed" {
+			fmt.Printf("parent issue [%v] has an incomplete subshipment task\n", parentIssue.Key)
+			//block deactivation issue by the aforementioned subshipment
 
-			ds, err := h.issueService.GetSubtaskByComponent(parentIssue, "Insight")
+			blockingIssue, err := h.issueService.GetByID(subShipment.ID)
 			if err != nil {
 				return err
 			}
 
-			di, err := h.issueService.GetByID(ds.ID)
-			if err != nil {
-				return err
-			}
-
-			bi, err := h.issueService.GetByID(ss.ID)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("blocking %v by %v\n", di.Key, bi.Key)
-			_, err = h.issueService.BlockByIssue(di, bi)
+			fmt.Printf("blocking [%v] by [%v]\n", di.Key, blockingIssue.Key)
+			_, err = h.issueService.BlockByIssue(deactivationIssue, blockingIssue)
 			if err != nil {
 				return err
 			}
@@ -138,7 +142,7 @@ func (h *TaskHandler) DeactivateInsight() error {
 			return err
 		}
 
-		fmt.Printf("found a user email %v\n", userEmail)
+		fmt.Printf("found user email %v\n", userEmail)
 
 		user, err := h.objectService.GetUserByEmail(userEmail)
 		if err != nil {
@@ -147,47 +151,40 @@ func (h *TaskHandler) DeactivateInsight() error {
 
 		if user == nil {
 			fmt.Printf("couldn't find insight user %v\n", userEmail)
-			unresolved = append(unresolved, di)
-			continue
-		}
-
-		getUserLaptopsRes, err := h.objectService.GetUserLaptops(user)
-		if err != nil {
-			return err
-		}
-
-		laptops := getUserLaptopsRes.ObjectEntries
-
-		fmt.Printf("user %v has %v laptops\n", userEmail, len(laptops))
-
-		var category string
-
-		if len(laptops) > 0 {
-			category = "Corporate laptop"
+			commentText = "Нет пользователя в Insight"
 		} else {
-			category = "BYOD"
-		}
+			getUserLaptopsRes, err := h.objectService.GetUserLaptops(user)
+			if err != nil {
+				return err
+			}
 
-		fmt.Printf("changing %v's status to %v\n", user.ObjectKey, category)
-		_, err = h.objectService.SetUserCategory(user, category)
-		if err != nil {
-			return fmt.Errorf("failed to set user category: %w", err)
-		}
+			laptops := getUserLaptopsRes.ObjectEntries
 
-		fmt.Printf("disabling %v\n", user.ObjectKey)
-		_, err = h.objectService.DisableUser(user)
-		if err != nil {
-			return fmt.Errorf("failed to disable user: %w", err)
-		}
+			fmt.Printf("user %v has %v laptops\n", userEmail, len(laptops))
 
-		deactivationSubtask, err := h.issueService.GetSubtaskByComponent(parentIssue, "Insight")
-		if err != nil {
-			return fmt.Errorf("failed to get subtask by component: %w", err)
-		}
+			var category string
 
-		deactivationIssue, err := h.issueService.GetByID(deactivationSubtask.ID)
-		if err != nil {
-			return fmt.Errorf("failed to get deactivation issue by ID: %w", err)
+			if len(laptops) > 0 {
+				fmt.Printf("user %v still has attached laptops\n", userEmail)
+				unresolved = append(unresolved, &di)
+				continue
+			} else {
+				category = "BYOD"
+			}
+
+			fmt.Printf("changing %v's status to %v\n", user.ObjectKey, category)
+			_, err = h.objectService.SetUserCategory(user, category)
+			if err != nil {
+				return fmt.Errorf("failed to set user category: %w", err)
+			}
+
+			fmt.Printf("disabling %v\n", user.ObjectKey)
+			_, err = h.objectService.DisableUser(user)
+			if err != nil {
+				return fmt.Errorf("failed to disable user: %w", err)
+			}
+
+			commentText = "[https://wiki.sbmt.io/x/sPjivQ]"
 		}
 
 		_, err = h.issueService.Close(deactivationIssue)
@@ -195,18 +192,22 @@ func (h *TaskHandler) DeactivateInsight() error {
 			return fmt.Errorf("failed to close deactivation issue: %w", err)
 		}
 
-		fmt.Printf("adding internal comment to %v\n", deactivationIssue.Key)
-		_, err = h.issueService.WriteInternalComment(deactivationIssue, "[https://wiki.sbmt.io/x/sPjivQ]")
+		fmt.Printf("adding internal comment to [%v]\n", deactivationIssue.Key)
+		_, err = h.issueService.WriteInternalComment(deactivationIssue, commentText)
 		if err != nil {
 			return fmt.Errorf("failed to write comment: %w", err)
 		}
+
+		fmt.Println("timeout 3 sec")
+		time.Sleep(3 * time.Second)
+
 	}
 
 	if len(unresolved) > 0 {
 		fmt.Print("unresolved issues:\n")
 		for i, ui := range unresolved {
 			fmt.Printf("%v. ", i+1)
-			h.issueService.PrintIssue(&ui)
+			h.issueService.PrintIssue(ui)
 		}
 	}
 
@@ -235,7 +236,7 @@ func (h *TaskHandler) GenerateDismissalRecords() error {
 
 		laptop, err := h.objectService.GetByISC(isc)
 		if err != nil {
-			return fmt.Errorf("failed to get laptop by isc: %w", err)
+			return fmt.Errorf("failed to get laptop by ISC: %w", err)
 		}
 
 		description, err := h.objectService.GetLaptopDescription(laptop)
@@ -262,7 +263,7 @@ func (h *TaskHandler) GenerateDismissalRecords() error {
 		for _, templateName := range templateNames {
 			template, err := h.dismissalService.CreateTemplate(record, templateName)
 			if err != nil {
-				return fmt.Errorf("failed to create a template %v: %w", templateName, err)
+				return fmt.Errorf("failed to create template %v: %w", templateName, err)
 			}
 
 			object, err := h.dismissalService.CreateObjectFromTemplate(template)
