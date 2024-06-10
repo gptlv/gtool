@@ -30,3 +30,4 @@ go.work
 .vscode
 
 output
+.DS_Store
