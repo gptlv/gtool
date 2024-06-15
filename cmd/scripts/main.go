@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"main/internal/ad"
 	"main/internal/dismissal"
 	"main/internal/issue"
 	"main/internal/object"
@@ -12,6 +13,7 @@ import (
 
 	pdf "github.com/adrg/go-wkhtmltopdf"
 	"github.com/andygrunwald/go-jira"
+	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/joho/godotenv"
 )
 
@@ -31,11 +33,24 @@ func main() {
 		log.Fatal(err)
 	}
 
+	ldapURL := os.Getenv("LDAP_URL")
+	conn, err := ldap.DialURL(ldapURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	err = conn.Bind(os.Getenv("AD_ADM_DN"), os.Getenv("AD_ADM_PASS"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	is := issue.NewIssueService(client)
 	os := object.NewObjectService(client)
 	ds := dismissal.NewDismissalService()
+	as := ad.NewAdService(conn)
 
-	th := task.NewTaskHandler(&is, &os, &ds)
+	th := task.NewTaskHandler(&is, &os, &ds, &as)
 
 	fmt.Print("\033[H\033[2J")
 	fmt.Println("1) Deactivate insight")
@@ -44,6 +59,7 @@ func main() {
 	fmt.Println("4) Assign all deactivate insight issues to me")
 	fmt.Println("5) Show issues with empty component")
 	fmt.Println("6) Update block trainee cc issue")
+	fmt.Println("7) Remove VPN groups from users")
 
 	var n int
 	for {
@@ -52,10 +68,10 @@ func main() {
 		fmt.Scanln(&input)
 
 		n, err = strconv.Atoi(input)
-		if err == nil && (1 <= n && n <= 6) {
+		if err == nil && (1 <= n && n <= 7) {
 			break
 		}
-		fmt.Println("Invalid choice.")
+		fmt.Println("Invalid choice")
 	}
 
 	if n == 1 {
@@ -100,6 +116,13 @@ func main() {
 
 	if n == 6 {
 		err := th.UpdateBlockTraineeIssue()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if n == 7 {
+		err := th.RemoveVPNGroupsFromUsers()
 		if err != nil {
 			log.Fatal(err)
 		}

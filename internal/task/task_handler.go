@@ -3,25 +3,33 @@ package task
 import (
 	"errors"
 	"fmt"
-	"log"
+	"io"
+	"main/internal/ad"
 	"main/internal/dismissal"
 	"main/internal/issue"
 	"main/internal/object"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/andygrunwald/go-jira"
+	"github.com/charmbracelet/log"
+	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/savioxavier/termlink"
 )
+
+const longTimeout = 2
+const shortTimeout = 1
 
 type TaskHandler struct {
 	issueService     issue.IssueService
 	objectService    object.ObjectService
 	dismissalService dismissal.DismissalService
+	adService        ad.AdService
 }
 
-func NewTaskHandler(is *issue.IssueService, os *object.ObjectService, ds *dismissal.DismissalService) *TaskHandler {
-	return &TaskHandler{issueService: *is, objectService: *os, dismissalService: *ds}
+func NewTaskHandler(is *issue.IssueService, os *object.ObjectService, ds *dismissal.DismissalService, as *ad.AdService) *TaskHandler {
+	return &TaskHandler{issueService: *is, objectService: *os, dismissalService: *ds, adService: *as}
 }
 
 func (h *TaskHandler) PrintLaptopDescription() error {
@@ -68,7 +76,7 @@ func (h *TaskHandler) AssignAllDeactivateInsightIssuesToMe() error {
 			return fmt.Errorf("failed to assign issue to me: %w", err)
 		}
 
-		time.Sleep(time.Second)
+		time.Sleep(shortTimeout * time.Second)
 
 	}
 
@@ -200,8 +208,8 @@ func (h *TaskHandler) DeactivateInsight() error {
 			return fmt.Errorf("failed to write comment: %w", err)
 		}
 
-		fmt.Println("timeout 3 sec")
-		time.Sleep(3 * time.Second)
+		fmt.Println("timeout 5 sec")
+		time.Sleep(5 * time.Second)
 
 	}
 
@@ -305,7 +313,7 @@ func (h *TaskHandler) ShowIssuesWithEmptyComponent() error {
 			fmt.Println(termlink.Link(summary, issueLink))
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(longTimeout * time.Second)
 
 	}
 
@@ -365,9 +373,90 @@ func (h *TaskHandler) UpdateBlockTraineeIssue() error {
 			return fmt.Errorf("failed to update summary for %v: %w", subtaskIssue.Key, err)
 		}
 
-		time.Sleep(3 * time.Second)
+		time.Sleep(longTimeout * time.Second)
 	}
 
 	return nil
 
+}
+
+func (h *TaskHandler) RemoveVPNGroupsFromUsers() error {
+	f, err := os.OpenFile("vpn.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer f.Close()
+
+	wrt := io.MultiWriter(f, os.Stdout)
+	log.SetOutput(wrt)
+
+	var failedUsers []string
+	failedFile, err := os.Create("failed_users.txt")
+	if err != nil {
+		return fmt.Errorf("failed to create failed users file: %w", err)
+	}
+	defer failedFile.Close()
+
+	prefix := "res.vpn."
+	usersFilename := "users.txt"
+
+	log.Info(fmt.Sprintf("Opening %s file", usersFilename))
+	file, err := os.Open(usersFilename)
+	if err != nil {
+		log.Error(fmt.Errorf("failed to open file %s: %w", usersFilename, err))
+		return err
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		log.Error(fmt.Errorf("failed to read file %s: %w", usersFilename, err))
+		return err
+	}
+
+	emails := strings.Split(string(content), "\n")
+
+	for _, email := range emails {
+		log.Info(fmt.Sprintf("Getting user by email %s", email))
+		user, err := h.adService.GetByEmail(email)
+		if err != nil {
+			log.Error(fmt.Errorf("failed to get user %s by email: %w", email, err))
+			continue
+		}
+
+		userGroups := h.adService.GetUserGroups(user)
+
+		for _, groupDN := range userGroups {
+			groupCN, err := h.adService.ExtractCNFromDN(groupDN)
+			if err != nil {
+				log.Error(fmt.Errorf("failed to extract group CN from DN %s: %w", groupDN, err))
+				continue
+			}
+
+			if strings.HasPrefix(groupCN, prefix) {
+				group := &ldap.Entry{DN: groupDN}
+
+				log.Info(fmt.Sprintf("Removing group %s from user %s", groupCN, user.GetAttributeValue("sAMAccountName")))
+
+				_, err := h.adService.RemoveUserFromGroup(user, group)
+				if err != nil {
+					log.Error(fmt.Errorf("failed to remove user %s from group %s: %w", email, groupCN, err))
+					failedUsers = append(failedUsers, email)
+					continue
+				}
+				time.Sleep(time.Duration(shortTimeout) * time.Second)
+			}
+
+		}
+	}
+
+	for _, failedUser := range failedUsers {
+		_, err := failedFile.WriteString(failedUser + "\n")
+		if err != nil {
+			log.Error(fmt.Errorf("failed to write failed user %s to file: %v", failedUser, err))
+		}
+	}
+
+	log.Info("Task completed successfully")
+	return nil
 }
