@@ -60,6 +60,8 @@ func main() {
 	fmt.Println("5) Show issues with empty component")
 	fmt.Println("6) Update block trainee cc issue")
 	fmt.Println("7) Remove VPN groups from users")
+	fmt.Println("8) Add user to group from jira issue")
+	fmt.Println("9) Check if user is disabled")
 
 	var n int
 	for {
@@ -68,7 +70,7 @@ func main() {
 		fmt.Scanln(&input)
 
 		n, err = strconv.Atoi(input)
-		if err == nil && (1 <= n && n <= 7) {
+		if err == nil && (1 <= n && n <= 9) {
 			break
 		}
 		fmt.Println("Invalid choice")
@@ -123,6 +125,20 @@ func main() {
 
 	if n == 7 {
 		err := th.RemoveVPNGroupsFromUsers()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if n == 8 {
+		err := th.AddUserToGroupFromJiraIssue()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if n == 9 {
+		err := th.CheckUserStatus()
 		if err != nil {
 			log.Fatal(err)
 		}

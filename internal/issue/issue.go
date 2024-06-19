@@ -15,6 +15,7 @@ type IssueService interface {
 	AssignIssueToMe(issue *jira.Issue) (*jira.Issue, error)
 	WriteInternalComment(issue *jira.Issue, commentText string) (*jira.Comment, error)
 	Summarize(issue *jira.Issue) string
+	BlockUntilTomorrow(issue *jira.Issue) (*jira.Issue, error)
 }
 
 const EMAIL_FIELD_KEY = "customfield_10145"
@@ -52,6 +53,17 @@ var blockByIssuePayloadBody = `
 	}
 }`
 
+var BlockUntilTomorrowPayloadBody = `
+{
+	"transition": {
+		"id": "3007915"
+	},
+	"fields": {
+		"customfield_10253":"19.06.2024"
+	}
+}
+`
+
 type BlockByIssuePayload struct {
 	Transition struct {
 		ID string `json:"id"`
@@ -68,6 +80,15 @@ type BlockByIssuePayload struct {
 			} `json:"add"`
 		} `json:"issuelinks"`
 	} `json:"update"`
+}
+
+type BlockUntilTomorrowPayload struct {
+	Transition struct {
+		ID string `json:"id"`
+	} `json:"transition"`
+	Fields struct {
+		Customfield10253 string `json:"customfield_10253"`
+	} `json:"fields"`
 }
 
 type InternalCommentPayload struct {

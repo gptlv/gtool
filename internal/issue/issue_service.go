@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/andygrunwald/go-jira"
 )
@@ -94,6 +95,7 @@ func (s *issueService) GetSubtaskByComponent(issue *jira.Issue, componentName st
 
 func (s *issueService) GetUserEmail(issue *jira.Issue) (string, error) {
 	email, _ := issue.Fields.Unknowns.Value(EMAIL_FIELD_KEY)
+	email = strings.TrimSpace(email.(string))
 
 	return fmt.Sprintf("%v", email), nil
 }
@@ -235,4 +237,40 @@ func (s *issueService) WriteInternalComment(issue *jira.Issue, commentText strin
 
 func (s *issueService) Summarize(issue *jira.Issue) string {
 	return fmt.Sprintf("[%s] %s", issue.Key, issue.Fields.Summary)
+}
+
+func (s *issueService) BlockUntilTomorrow(issue *jira.Issue) (*jira.Issue, error) {
+	if issue == nil {
+		return nil, errors.New("empty issue")
+	}
+
+	possibleTransitions, _, err := s.client.Issue.GetTransitions(issue.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, t := range possibleTransitions {
+		if t.Name == "Block" {
+			// body := fmt.Sprintf(blockByIssuePayloadBody, t.ID, blockingIssue.Key)
+
+			payload := new(BlockUntilTomorrowPayload)
+
+			err := json.Unmarshal([]byte(BlockUntilTomorrowPayloadBody), payload)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = s.client.Issue.DoTransitionWithPayload(issue.ID, &payload)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	updatedIssue, err := s.GetByID(issue.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedIssue, nil
 }

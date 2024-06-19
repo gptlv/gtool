@@ -17,6 +17,27 @@ func NewAdService(conn *ldap.Conn) AdService {
 	return &adService{conn: conn}
 }
 
+func (s *adService) GetByCN(cn string) (*ldap.Entry, error) {
+	if cn == "" {
+		return nil, errors.New("empty cn")
+	}
+
+	baseDN := os.Getenv("BASE_DN")
+	filter := fmt.Sprintf("(cn=%s)", ldap.EscapeFilter(cn))
+
+	searchGroupReq := ldap.NewSearchRequest(baseDN, ldap.ScopeWholeSubtree, 0, 0, 0, false, filter, []string{"sAMAccountName", "cn"}, []ldap.Control{})
+
+	groupRes, err := s.conn.Search(searchGroupReq)
+	if err != nil {
+		log.Fatal("failed to query LDAP: %w", err)
+	}
+
+	group := groupRes.Entries[0]
+
+	return group, nil
+
+}
+
 func (s *adService) GetByEmail(email string) (*ldap.Entry, error) {
 	if email == "" {
 		return nil, errors.New("empty email")
@@ -25,7 +46,7 @@ func (s *adService) GetByEmail(email string) (*ldap.Entry, error) {
 	baseDN := os.Getenv("BASE_DN")
 	filter := fmt.Sprintf("(mail=%s)", ldap.EscapeFilter(email))
 
-	searchUserReq := ldap.NewSearchRequest(baseDN, ldap.ScopeWholeSubtree, 0, 0, 0, false, filter, []string{"sAMAccountName", "memberOf", "mail"}, []ldap.Control{})
+	searchUserReq := ldap.NewSearchRequest(baseDN, ldap.ScopeWholeSubtree, 0, 0, 0, false, filter, []string{"sAMAccountName", "memberOf", "mail", "userAccountControl"}, []ldap.Control{})
 
 	userRes, err := s.conn.Search(searchUserReq)
 	if err != nil {
@@ -74,4 +95,33 @@ func (s *adService) RemoveUserFromGroup(user, group *ldap.Entry) (*ldap.Entry, e
 	}
 
 	return updatedUser, nil
+}
+
+func (s *adService) AddUserToGroup(user, group *ldap.Entry) (*ldap.Entry, error) {
+	if user == nil {
+		return nil, errors.New("empty user")
+
+	}
+
+	if group == nil {
+		return nil, errors.New("empty group")
+	}
+
+	modify := ldap.NewModifyRequest(group.DN, []ldap.Control{})
+	modify.Add("member", []string{user.DN})
+
+	err := s.conn.Modify(modify)
+	if err != nil {
+		return nil, err
+	}
+
+	email := user.GetAttributeValue("mail")
+
+	updatedUser, err := s.GetByEmail(email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	return updatedUser, nil
+
 }

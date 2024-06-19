@@ -9,6 +9,7 @@ import (
 	"main/internal/issue"
 	"main/internal/object"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -138,6 +139,9 @@ func (h *TaskHandler) DeactivateInsight() error {
 			if err != nil {
 				return err
 			}
+
+			fmt.Println("timeout 5 sec")
+			time.Sleep(5 * time.Second)
 
 			continue
 		}
@@ -343,6 +347,7 @@ func (h *TaskHandler) UpdateBlockTraineeIssue() error {
 	}
 
 	email := causingIssue.Fields.Unknowns["customfield_10356"].(string)
+	//email, _ := issue.Fields.Unknowns.Value(EMAIL_FIELD_KEY)
 	fmt.Printf("user email: %v\n", email)
 
 	for _, st := range issue.Fields.Subtasks {
@@ -459,4 +464,137 @@ func (h *TaskHandler) RemoveVPNGroupsFromUsers() error {
 
 	log.Info("Task completed successfully")
 	return nil
+}
+
+func (h *TaskHandler) AddUserToGroupFromJiraIssue() error {
+	var adGroupCN string
+	var issueKey string
+
+	fmt.Print("enter issue key: ")
+	fmt.Scanln(&issueKey)
+	// issueKey := "SD-735229"
+
+	log.Info(fmt.Sprintf("Getting issue by key %v", issueKey))
+	issue, err := h.issueService.GetByID(issueKey)
+	if err != nil {
+		return fmt.Errorf("failed to get issue by key: %w", err)
+	}
+	log.Info(fmt.Sprintf("Found issue: %v", h.issueService.Summarize(issue)))
+
+	roleInfo := issue.Fields.Unknowns["customfield_13063"].([]interface{})[0].(string) //unreliable
+	roleInfoArray := strings.Split(roleInfo, " ")
+	informationResourceKeyRaw := roleInfoArray[len(roleInfoArray)-1]
+	informationResourceKey := informationResourceKeyRaw[1 : len(informationResourceKeyRaw)-1]
+
+	log.Info(fmt.Sprintf("Getting information resource by key %v", informationResourceKey))
+
+	informationResource, err := h.objectService.GetByISC(informationResourceKey)
+	if err != nil {
+		return fmt.Errorf("failed to get information resource by key: %w", err)
+	}
+	log.Info(fmt.Sprintf("Found information resource: %v", informationResource.Label))
+
+	for _, attribute := range informationResource.Attributes {
+		if attribute.ObjectTypeAttributeID == 8527 {
+			adGroupCN = attribute.ObjectAttributeValues[0].Value
+			fmt.Println(adGroupCN)
+		}
+	}
+	log.Info(fmt.Sprintf("Found AD group: %v", adGroupCN))
+
+	summary := strings.Split(issue.Fields.Summary, " ")
+	email := summary[len(summary)-1]
+
+	log.Info(fmt.Sprintf("Getting AD user by email: %v", email))
+	user, err := h.adService.GetByEmail(email)
+	if err != nil {
+		return fmt.Errorf("failed to get user by email: %w", err)
+	}
+	group, err := h.adService.GetByCN(adGroupCN)
+	if err != nil {
+		return fmt.Errorf("failed to get group by cn: %w", err)
+	}
+
+	log.Info(fmt.Sprintf("Adding user %v to group %v", user.GetAttributeValue("mail"), group.GetAttributeValue("cn")))
+	_, err = h.adService.AddUserToGroup(user, group)
+	if err != nil {
+		return fmt.Errorf("failed to add user %v to group %v : %w", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err)
+	}
+
+	commentText := "[https://wiki.sbmt.io/x/WcPivQ]"
+
+	log.Info(fmt.Sprintf("adding internal comment to [%v]\n", issue.Key))
+	_, err = h.issueService.WriteInternalComment(issue, commentText)
+	if err != nil {
+		return fmt.Errorf("failed to write comment: %w", err)
+	}
+
+	return nil
+}
+
+func (h *TaskHandler) CheckUserStatus() error {
+	//project = sd and assignee = empty and resolution = unresolved and text ~ "Блокировка УЗ в AD" and due < endOfWeek() and type = Sub-task and component = AD
+	var issueKey string
+
+	fmt.Print("enter issue key: ")
+	fmt.Scanln(&issueKey)
+	// issueKey := "SD-731877"
+
+	log.Info(fmt.Sprintf("Getting issue by key %v", issueKey))
+	issue, err := h.issueService.GetByID(issueKey)
+	if err != nil {
+		return fmt.Errorf("failed to get issue by key: %w", err)
+	}
+	log.Info(fmt.Sprintf("Found issue: %v", h.issueService.Summarize(issue)))
+
+	summary := strings.Split(issue.Fields.Summary, " ")
+	email := summary[len(summary)-1]
+
+	log.Info(fmt.Sprintf("Getting AD user by email: %v", email))
+	user, err := h.adService.GetByEmail(email)
+	if err != nil {
+		return fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	flags := user.GetAttributeValue("userAccountControl") //512 -- active, 514 -- inactive
+
+	flagsInt, err := strconv.Atoi(flags)
+	if err != nil {
+		return fmt.Errorf("failed to convert userAccountControl to int")
+	}
+
+	status := "unknown"
+
+	if flagsInt == 512 {
+		status = "active"
+		_, err := h.issueService.BlockUntilTomorrow(issue)
+		if err != nil {
+			return fmt.Errorf("failed to block issue until tomorrow: %w", err)
+		}
+		//block until tomorrow
+	}
+
+	if flagsInt == 514 {
+		//add comment, close the issue
+		status = "inactive"
+		_, err := h.issueService.Close(issue)
+		if err != nil {
+			return fmt.Errorf("failed to close issue: %w", err)
+		}
+
+		_, err = h.issueService.WriteInternalComment(issue, "Заблокировал idm")
+		if err != nil {
+			return fmt.Errorf("failed to write internal comment: %w", err)
+		}
+
+		_, err = h.issueService.WriteInternalComment(issue, "[https://wiki.sbmt.io/x/mB6zsg]")
+		if err != nil {
+			return fmt.Errorf("failed to write internal comment: %w", err)
+		}
+	}
+
+	log.Info(fmt.Sprintf("user's %v status is %v", email, status))
+
+	return nil
+
 }
