@@ -497,8 +497,11 @@ func (h *TaskHandler) AddUserToGroupFromJiraIssue() error {
 	for _, attribute := range informationResource.Attributes {
 		if attribute.ObjectTypeAttributeID == 8527 {
 			adGroupCN = attribute.ObjectAttributeValues[0].Value
-			fmt.Println(adGroupCN)
 		}
+	}
+
+	if adGroupCN == "" {
+		return errors.New("empty ad group CN")
 	}
 	log.Info(fmt.Sprintf("Found AD group: %v", adGroupCN))
 
@@ -546,11 +549,12 @@ func (h *TaskHandler) CheckUserStatus() error {
 		return fmt.Errorf("failed to get issue by key: %w", err)
 	}
 	log.Info(fmt.Sprintf("Found issue: %v", h.issueService.Summarize(issue)))
-
-	summary := strings.Split(issue.Fields.Summary, " ")
+	//summary: 19.06 Создать УЗ AD для заявки на стажера Иванов Иван Иванович
+	summary := strings.Split(issue.Fields.Summary, " ") // won't work
 	email := summary[len(summary)-1]
 
 	log.Info(fmt.Sprintf("Getting AD user by email: %v", email))
+	//! what if more than one user has the same name
 	user, err := h.adService.GetByEmail(email)
 	if err != nil {
 		return fmt.Errorf("failed to get user by email: %w", err)
@@ -597,4 +601,56 @@ func (h *TaskHandler) CheckUserStatus() error {
 
 	return nil
 
+}
+
+func (h *TaskHandler) MoveUsersToNewOU() error {
+	f, err := os.OpenFile("ou.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer f.Close()
+
+	wrt := io.MultiWriter(f, os.Stdout)
+	log.SetOutput(wrt)
+
+	usersFilename := "users.txt"
+
+	log.Info(fmt.Sprintf("Opening %s file", usersFilename))
+	file, err := os.Open(usersFilename)
+	if err != nil {
+		log.Error(fmt.Errorf("failed to open file %s: %w", usersFilename, err))
+		return err
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		log.Error(fmt.Errorf("failed to read file %s: %w", usersFilename, err))
+		return err
+	}
+
+	commonNames := strings.Split(string(content), "\n")
+
+	for _, cn := range commonNames {
+		user, err := h.adService.GetByCN(cn)
+		if err != nil {
+			log.Error(fmt.Errorf("failed to get user %v by cn", cn))
+			return err
+		}
+
+		newSup := "OU=External,OU=Users,OU=SBMT,DC=sbermarket,DC=ru"
+		// newDN := fmt.Sprintf("CN=%v,OU=E-comm,OU=Users,OU=SBMT,DC=sbermarket,DC=ru", cn)
+
+		log.Info(fmt.Sprintf("Moving user %v to %v", cn, newSup))
+		_, err = h.adService.UpdateDN(user, newSup)
+		if err != nil {
+			log.Error(fmt.Errorf("failed to move user %v to %v", cn, newSup))
+			return err
+		}
+
+		time.Sleep(shortTimeout * time.Second)
+
+	}
+
+	return nil
 }

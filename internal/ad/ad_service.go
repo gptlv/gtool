@@ -125,3 +125,22 @@ func (s *adService) AddUserToGroup(user, group *ldap.Entry) (*ldap.Entry, error)
 	return updatedUser, nil
 
 }
+
+func (s *adService) UpdateDN(user *ldap.Entry, newSup string) (*ldap.Entry, error) {
+	cn := user.GetAttributeValue("cn")
+	rdn := fmt.Sprintf("CN=%v", cn)
+
+	req := ldap.NewModifyDNRequest(user.DN, rdn, true, newSup)
+	err := s.conn.ModifyDN(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to modify userDN: %s", err)
+	}
+
+	updatedUser, err := s.GetByCN(cn)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedUser, nil
+
+}

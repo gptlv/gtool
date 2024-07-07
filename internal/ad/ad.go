@@ -9,4 +9,5 @@ type AdService interface {
 	RemoveUserFromGroup(user, group *ldap.Entry) (*ldap.Entry, error)
 	AddUserToGroup(user, group *ldap.Entry) (*ldap.Entry, error)
 	ExtractCNFromDN(dn string) (string, error)
+	UpdateDN(user *ldap.Entry, newDN string) (*ldap.Entry, error)
 }
