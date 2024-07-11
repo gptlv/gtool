@@ -1,4 +1,4 @@
-package dismissal
+package services
 
 import (
 	"bytes"

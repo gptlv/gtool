@@ -1,4 +1,4 @@
-package object
+package services
 
 import (
 	"encoding/json"
@@ -7,44 +7,6 @@ import (
 
 	"github.com/andygrunwald/go-jira"
 )
-
-const USER_STATUS_ATTRIBUTE_ID = 4220
-const USER_CATEGORY_ATTRIBUTE_ID = 10209
-const USER_EMAIL_ATTRIBUTE_ID = 2874
-const USER_STATUS_DISABLE_VALUE = 100
-
-const ISC_ATTRIBUTE_ID = 879
-const NAME_ATTRIBUTE_ID = 880
-const SERIAL_ATTRIBUTE_ID = 889
-const COST_ATTRIBUTE_ID = 4184
-const INVENTORY_ID_ATTRIBUTE_ID = 932
-
-var userAttributePayloadBody = `{
-	"attributes": [
-	{
-		"objectTypeAttributeId": %v,
-		"objectAttributeValues": [
-			{
-				"value": "%v"
-			}
-		]
-	}
-	]
-}`
-
-var endpoints = struct {
-	GetUserLaptopsByKey string
-	GetUserByEmail      string
-	GetObjectByISC      string
-	GetAttachments      string
-	GetAttributes       string
-}{
-	"rest/insight/1.0/iql/objects?iql=object+having+outboundReferences(Key+=+%v)+and+objectType+=+Laptops",
-	"rest/insight/1.0/iql/objects?iql=Email=%v&objectSchemaId=41", // 41 -- IT SD CMDB
-	"rest/insight/1.0/object/%v/",
-	"rest/insight/1.0/attachments/object/%v",
-	"rest/insight/1.0/object/%v/attributes",
-}
 
 type objectService struct {
 	client *jira.Client

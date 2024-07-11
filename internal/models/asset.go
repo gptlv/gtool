@@ -1,20 +1,13 @@
-package object
+package models
 
-import (
-	"time"
-)
+import "time"
 
-type ObjectService interface {
-	GetAll(iql string) (*GetObjectRes, error)
-	Update(payload *Object) (*Object, error)
-	GetByISC(ISC string) (*Object, error)
-	GetAttachments(object *Object) ([]Attachment, error)
-	DisableUser(user *Object) (*Object, error)
-	SetUserCategory(user *Object, category string) (*Object, error)
-	GetUserEmail(user *Object) string
-	GetUserLaptops(user *Object) (*GetObjectRes, error)
-	GetUserByEmail(email string) (*Object, error)
-	GetLaptopDescription(laptop *Object) (*LaptopDescription, error)
+type LaptopDescription struct {
+	Serial      string
+	ISC         string
+	Name        string
+	InventoryID string
+	Cost        string
 }
 
 type GetObjectRes struct {
@@ -178,19 +171,29 @@ type Attachment struct {
 	URL           string    `json:"url"`
 }
 
-type UserAttributesPayload struct {
-	Attributes []struct {
-		ObjectTypeAttributeID int `json:"objectTypeAttributeId"`
-		ObjectAttributeValues []struct {
-			Value string `json:"value"`
-		} `json:"objectAttributeValues"`
-	} `json:"attributes"`
-}
+var userAttributePayloadBody = `{
+	"attributes": [
+	{
+		"objectTypeAttributeId": %v,
+		"objectAttributeValues": [
+			{
+				"value": "%v"
+			}
+		]
+	}
+	]
+}`
 
-type LaptopDescription struct {
-	Serial      string
-	ISC         string
-	Name        string
-	InventoryID string
-	Cost        string
+var endpoints = struct {
+	GetUserLaptopsByKey string
+	GetUserByEmail      string
+	GetObjectByISC      string
+	GetAttachments      string
+	GetAttributes       string
+}{
+	"rest/insight/1.0/iql/objects?iql=object+having+outboundReferences(Key+=+%v)+and+objectType+=+Laptops",
+	"rest/insight/1.0/iql/objects?iql=Email=%v&objectSchemaId=41", // 41 -- IT SD CMDB
+	"rest/insight/1.0/object/%v/",
+	"rest/insight/1.0/attachments/object/%v",
+	"rest/insight/1.0/object/%v/attributes",
 }
