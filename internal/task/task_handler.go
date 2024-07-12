@@ -63,7 +63,8 @@ func (h *TaskHandler) PrintLaptopDescription() error {
 
 func (h *TaskHandler) AssignAllDeactivateInsightIssuesToMe() error {
 	// jql := ""
-	jql := `project = SD and assignee = empty and summary ~ "Деактивировать в Insight" and resolution = unresolved and "Postpone until" < endOfWeek()`
+	// jql := `project = SD and assignee = empty and summary ~ "Деактивировать в Insight" and resolution = unresolved and "Postpone until" < endOfMonth()`
+	jql := `project = "IT Support" and component = AD and summary ~ "Блокировка УЗ в AD" and assignee = empty and "Postpone until" < endOfMonth() and resolution = Unresolved`
 
 	insightIssues, err := h.issueService.GetAll(jql)
 	if err != nil {
@@ -560,32 +561,34 @@ func (h *TaskHandler) CheckUserStatus() error {
 		return fmt.Errorf("failed to get user by email: %w", err)
 	}
 
-	flags := user.GetAttributeValue("userAccountControl") //512 -- active, 514 -- inactive
+	flag := user.GetAttributeValue("userAccountControl") //512 -- active, 514 -- inactive
 
-	flagsInt, err := strconv.Atoi(flags)
+	flagInt, err := strconv.Atoi(flag)
 	if err != nil {
 		return fmt.Errorf("failed to convert userAccountControl to int")
 	}
 
-	status := "unknown"
+	if flagInt == 512 {
+		log.Info(fmt.Sprintf("user %v is active", email))
+		// status = "active"
 
-	if flagsInt == 512 {
-		status = "active"
-		_, err := h.issueService.BlockUntilTomorrow(issue)
-		if err != nil {
-			return fmt.Errorf("failed to block issue until tomorrow: %w", err)
-		}
+		// _, err := h.issueService.BlockUntilTomorrow(issue)
+		// if err != nil {
+		// 	return fmt.Errorf("failed to block issue until tomorrow: %w", err)
+		// }
 		//block until tomorrow
 	}
 
-	if flagsInt == 514 {
-		//add comment, close the issue
-		status = "inactive"
+	if flagInt == 514 {
+		log.Info(fmt.Sprintf("user %v is inactive", email))
+
+		log.Info(fmt.Sprintf("closing issue %v", issue.Key))
 		_, err := h.issueService.Close(issue)
 		if err != nil {
 			return fmt.Errorf("failed to close issue: %w", err)
 		}
 
+		log.Info(fmt.Sprintf("writing internal comments to %v", issue.Key))
 		_, err = h.issueService.WriteInternalComment(issue, "Заблокировал idm")
 		if err != nil {
 			return fmt.Errorf("failed to write internal comment: %w", err)
@@ -596,8 +599,6 @@ func (h *TaskHandler) CheckUserStatus() error {
 			return fmt.Errorf("failed to write internal comment: %w", err)
 		}
 	}
-
-	log.Info(fmt.Sprintf("user's %v status is %v", email, status))
 
 	return nil
 
@@ -650,6 +651,86 @@ func (h *TaskHandler) MoveUsersToNewOU() error {
 
 		time.Sleep(shortTimeout * time.Second)
 
+	}
+
+	return nil
+}
+
+func (h *TaskHandler) AddUserToGroupFromCLI() error {
+	var email string
+	var adGroupCN string
+
+	fmt.Print("enter user email: ")
+	fmt.Scanln(&email)
+
+	log.Info(fmt.Sprintf("Getting AD user by email: %v", email))
+	user, err := h.adService.GetByEmail(email)
+	if err != nil {
+		return fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	fmt.Print("enter group cn: ")
+	fmt.Scanln(&adGroupCN)
+
+	group, err := h.adService.GetByCN(adGroupCN)
+	if err != nil {
+		return fmt.Errorf("failed to get group by cn: %w", err)
+	}
+
+	log.Info(fmt.Sprintf("Adding user %v to group %v", user.GetAttributeValue("mail"), group.GetAttributeValue("cn")))
+	_, err = h.adService.AddUserToGroup(user, group)
+	if err != nil {
+		return fmt.Errorf("failed to add user %v to group %v : %w", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err)
+	}
+
+	return nil
+}
+
+func (h *TaskHandler) ProcessDismissalIssue() error {
+	//project = "IT Support" and component = Dismissal and resolution = Unresolved  and assignee = empty and summary ~ "Увольнение"  and "Postpone until"  < endOfMonth()
+	// tomorrow := time.Now().AddDate(0, 0, 1)
+	// tomorrowFormatted := tomorrow.Format("2006-01-02")
+
+	var issueKey string
+
+	fmt.Print("enter issue key: ")
+	fmt.Scanln(&issueKey)
+
+	log.Info(fmt.Sprintf("getting issue %v by key", issueKey))
+	issue, err := h.issueService.GetByID(issueKey)
+	if err != nil {
+		return fmt.Errorf("failed to get issue by key: %w", err)
+	}
+
+	log.Info(fmt.Sprintf("getting unresolved subtask for %v", issue.Key))
+	unresolvedSubtask, err := h.issueService.GetUnresolvedSubtask(issue)
+	if err != nil {
+		return fmt.Errorf("failed to get unresolved subtask: %w", err)
+	}
+
+	if unresolvedSubtask != nil {
+		log.Info(fmt.Sprintf("found unresolved subtask: %v %v", unresolvedSubtask.Key, unresolvedSubtask.Fields.Summary))
+		log.Info(fmt.Sprintf("blocking main issue %v by unresolved subtask %v", issue.Key, unresolvedSubtask.Key))
+		_, err := h.issueService.BlockByIssue(issue, unresolvedSubtask)
+		if err != nil {
+			return fmt.Errorf("failed to block by issue")
+		}
+
+		return nil
+	}
+
+	log.Info("all subtasks are resolved")
+	log.Info("closing the issue")
+	_, err = h.issueService.Close(issue)
+	if err != nil {
+		return fmt.Errorf("failed to close issue %v: %w", issue.Key, err)
+	}
+
+	log.Info("adding internal comment")
+	comment := "[https://wiki.sbmt.io/x/jgeLvg]"
+	_, err = h.issueService.WriteInternalComment(issue, comment)
+	if err != nil {
+		return fmt.Errorf("failed to write internal comment to %v: %w", issue.Key, err)
 	}
 
 	return nil

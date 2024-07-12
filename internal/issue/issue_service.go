@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/andygrunwald/go-jira"
 )
@@ -151,6 +152,46 @@ func (s *issueService) Close(issue *jira.Issue) (*jira.Issue, error) {
 
 }
 
+func (s *issueService) BlockWithPayload(issue *jira.Issue) (*jira.Issue, error) {
+	if issue == nil {
+		return nil, errors.New("empty issue")
+	}
+
+	tomorrow := time.Now().AddDate(0, 0, 1)
+	tomorrowFormatted := tomorrow.Format("2006-01-02")
+	possibleTransitions, _, err := s.client.Issue.GetTransitions(issue.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get possible transitions: %w", err)
+	}
+
+	for _, t := range possibleTransitions {
+		if t.Name == "Block" {
+
+			body := fmt.Sprintf(blockAndPostponeIssuePayloadBody, t.ID, tomorrowFormatted)
+
+			payload := new(BlockByIssuePayload)
+
+			err := json.Unmarshal([]byte(body), payload)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = s.client.Issue.DoTransitionWithPayload(issue.ID, payload)
+			if err != nil {
+				return nil, err
+			}
+
+		}
+	}
+
+	issue, err = s.GetByID(issue.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get updated issue: %w", err)
+	}
+
+	return issue, nil
+}
+
 func (s *issueService) BlockByIssue(currentIssue *jira.Issue, blockingIssue *jira.Issue) (*jira.Issue, error) {
 	possibleTransitions, _, err := s.client.Issue.GetTransitions(currentIssue.ID)
 	if err != nil {
@@ -251,8 +292,6 @@ func (s *issueService) BlockUntilTomorrow(issue *jira.Issue) (*jira.Issue, error
 
 	for _, t := range possibleTransitions {
 		if t.Name == "Block" {
-			// body := fmt.Sprintf(blockByIssuePayloadBody, t.ID, blockingIssue.Key)
-
 			payload := new(BlockUntilTomorrowPayload)
 
 			err := json.Unmarshal([]byte(BlockUntilTomorrowPayloadBody), payload)
@@ -273,4 +312,23 @@ func (s *issueService) BlockUntilTomorrow(issue *jira.Issue) (*jira.Issue, error
 	}
 
 	return updatedIssue, nil
+}
+
+func (s *issueService) GetUnresolvedSubtask(issue *jira.Issue) (*jira.Issue, error) {
+	if issue == nil {
+		return nil, errors.New("empty issue")
+	}
+
+	for _, subtask := range issue.Fields.Subtasks {
+		substaskIssue, err := s.GetByID(subtask.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get subtask issue %v by id: %w", substaskIssue.Key, err)
+		}
+
+		if substaskIssue.Fields.Status.ID != "6" {
+			return substaskIssue, nil
+		}
+	}
+
+	return nil, nil
 }

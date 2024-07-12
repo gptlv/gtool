@@ -16,6 +16,7 @@ type IssueService interface {
 	WriteInternalComment(issue *jira.Issue, commentText string) (*jira.Comment, error)
 	Summarize(issue *jira.Issue) string
 	BlockUntilTomorrow(issue *jira.Issue) (*jira.Issue, error)
+	GetUnresolvedSubtask(issue *jira.Issue) (*jira.Issue, error)
 }
 
 const EMAIL_FIELD_KEY = "customfield_10145"
@@ -31,6 +32,17 @@ var internalCommentPayloadBody = `{
 	  }
 	]
  }`
+
+var blockAndPostponeIssuePayloadBody = `
+ {
+    "transition": {
+        "id": "%v"
+    },
+    "fields": {
+        "customfield_10253": "%v"
+    }
+}
+ `
 
 var blockByIssuePayloadBody = `
 {
@@ -55,12 +67,12 @@ var blockByIssuePayloadBody = `
 
 var BlockUntilTomorrowPayloadBody = `
 {
-	"transition": {
-		"id": "3007915"
-	},
-	"fields": {
-		"customfield_10253":"19.06.2024"
-	}
+    "transition": {
+        "id": "401"
+    },
+    "fields": {
+        "customfield_10253": "2024-11-10"
+    }
 }
 `
 

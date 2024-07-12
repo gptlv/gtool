@@ -63,6 +63,8 @@ func main() {
 	fmt.Println("8) Add user to group from jira issue")
 	fmt.Println("9) Check if user is disabled")
 	fmt.Println("10) Move users to new OU")
+	fmt.Println("11) Add user to ad group from cli")
+	fmt.Println("12) Process dismissal issue")
 
 	var n int
 	for {
@@ -71,7 +73,7 @@ func main() {
 		fmt.Scanln(&input)
 
 		n, err = strconv.Atoi(input)
-		if err == nil && (1 <= n && n <= 10) {
+		if err == nil && (1 <= n && n <= 12) {
 			break
 		}
 		fmt.Println("Invalid choice")
@@ -147,6 +149,20 @@ func main() {
 
 	if n == 10 {
 		err := th.MoveUsersToNewOU()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if n == 11 {
+		err := th.AddUserToGroupFromCLI()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if n == 12 {
+		err := th.ProcessDismissalIssue()
 		if err != nil {
 			log.Fatal(err)
 		}
