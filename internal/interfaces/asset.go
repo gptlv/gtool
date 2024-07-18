@@ -1,22 +1,22 @@
 package interfaces
 
 import (
-	"main/internal/entities"
+	"main/internal/models"
 )
 
 type AssetService interface {
-	GetAll(iql string) ([]*entities.Asset, error)
-	Update(payload *entities.Asset) (*entities.Asset, error)
-	GetByISC(ISC string) (*entities.Asset, error)
-	// GetAttachments(*entities.Asset) ([]Attachment, error)
-	DisableUser(user *entities.Asset) (*entities.Asset, error)
-	SetUserCategory(user *entities.Asset, category string) (*entities.Asset, error)
-	GetUserEmail(user *entities.Asset) string
-	GetUserLaptops(user *entities.Asset) (*entities.Asset, error)
-	GetUserByEmail(email string) (*entities.Asset, error)
-	// GetLaptopDescription(laptop *entities.Object) (*AssetDescription, error)
+	GetAll(iql string) (*models.GetObjectRes, error)
+	Update(payload *models.Object) (*models.Object, error)
+	GetByISC(ISC string) (*models.Object, error)
+	GetAttachments(*models.Object) ([]models.Attachment, error)
+	DisableUser(user *models.Object) (*models.Object, error)
+	SetUserCategory(user *models.Object, category string) (*models.Object, error)
+	GetUserEmail(user *models.Object) string
+	GetUserLaptops(user *models.Object) (*models.GetObjectRes, error)
+	GetUserByEmail(email string) (*models.Object, error)
+	GetLaptopDescription(laptop *models.Object) (*models.LaptopDescription, error)
 }
 
-type AssetUsecase interface {
-	PrintLaptopDescription()
+type AssetHandler interface {
+	PrintLaptopDescription() error
 }

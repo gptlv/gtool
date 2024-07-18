@@ -1,4 +1,4 @@
-package controllers
+package handlers
 
 import (
 	"fmt"
@@ -6,32 +6,32 @@ import (
 	"main/internal/interfaces"
 )
 
-type AssetHandler struct {
+type assetHandler struct {
 	assetService interfaces.AssetService
 }
 
-func NewAssetHandler(assetService interfaces.AssetService) *AssetHandler {
-	return &AssetHandler{assetService: assetService}
+func NewAssetHandler(assetService interfaces.AssetService) interfaces.AssetHandler {
+	return &assetHandler{assetService: assetService}
 }
 
-func (assetHandler *AssetHandler) PrintLaptopDescription() error {
+func (assetHandler *assetHandler) PrintLaptopDescription() error {
 	var email string
 
 	fmt.Print("enter user's email: ")
 	fmt.Scanln(&email)
 
-	user, err := h.objectService.GetUserByEmail(email)
+	user, err := assetHandler.assetService.GetUserByEmail(email)
 	if err != nil {
 		return fmt.Errorf("failed to get user by email: %w", err)
 	}
 
-	res, err := h.objectService.GetUserLaptops(user)
+	res, err := assetHandler.assetService.GetUserLaptops(user)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, laptop := range res.ObjectEntries {
-		description, err := h.objectService.GetLaptopDescription(&laptop)
+		description, err := assetHandler.assetService.GetLaptopDescription(&laptop)
 		if err != nil {
 			return fmt.Errorf("failed to get %v laptop description: %w", laptop.ObjectKey, err)
 		}

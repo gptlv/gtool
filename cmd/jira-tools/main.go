@@ -3,15 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
-	"main/internal/ad"
-	"main/internal/dismissal"
-	"main/internal/issue"
-	"main/internal/object"
-	"main/internal/task"
+	"main/internal/handlers"
+	"main/internal/services"
 	"os"
 	"strconv"
 
-	pdf "github.com/adrg/go-wkhtmltopdf"
 	"github.com/andygrunwald/go-jira"
 	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/joho/godotenv"
@@ -40,17 +36,18 @@ func main() {
 	}
 	defer conn.Close()
 
-	err = conn.Bind(os.Getenv("AD_ADM_DN"), os.Getenv("AD_ADM_PASS"))
+	err = conn.Bind(os.Getenv("ADMIN_DN"), os.Getenv("ADMIN_PASS"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	is := issue.NewIssueService(client)
-	os := object.NewObjectService(client)
-	ds := dismissal.NewDismissalService()
-	as := ad.NewAdService(conn)
+	// is := issue.NewIssueService(client)
+	issueService := services.NewIssueService(client)
+	assetService := services.NewAssetService(client)
+	activeDirectoryService := services.NewActiveDirectoryService(conn)
 
-	th := task.NewTaskHandler(&is, &os, &ds, &as)
+	issueHandler := handlers.NewIssueHandler(issueService, activeDirectoryService)
+	assetHandler := handlers.NewAssetHandler(assetService)
 
 	fmt.Print("\033[H\033[2J")
 	fmt.Println("1) Deactivate insight")
@@ -63,6 +60,8 @@ func main() {
 	fmt.Println("8) Add user to group from jira issue")
 	fmt.Println("9) Check if user is disabled")
 	fmt.Println("10) Move users to new OU")
+	fmt.Println("11) Add user to ad group from cli")
+	fmt.Println("12) Process dismissal or hiring issue")
 
 	var n int
 	for {
@@ -78,75 +77,89 @@ func main() {
 	}
 
 	if n == 1 {
-		err := th.DeactivateInsight()
+		err := issueHandler.DeactivateInsight()
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	if n == 2 {
-		if err := pdf.Init(); err != nil {
-			log.Fatal(fmt.Errorf("failed to initialize pdf: %w", err))
-		}
-		defer pdf.Destroy()
+	// if n == 2 {
+	// 	if err := pdf.Init(); err != nil {
+	// 		log.Fatal(fmt.Errorf("failed to initialize pdf: %w", err))
+	// 	}
+	// 	defer pdf.Destroy()
 
-		err := th.GenerateDismissalRecords()
-		if err != nil {
-			panic(err)
-		}
-	}
+	// 	err := th.GenerateDismissalRecords()
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// }
 
 	if n == 3 {
-		err := th.PrintLaptopDescription()
+		err := assetHandler.PrintLaptopDescription()
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	if n == 4 {
-		err := th.AssignAllDeactivateInsightIssuesToMe()
+		err := issueHandler.AssignAllDeactivateInsightIssuesToMe()
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	if n == 5 {
-		err := th.ShowIssuesWithEmptyComponent()
+		err := issueHandler.ShowIssuesWithEmptyComponent()
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	if n == 6 {
-		err := th.UpdateBlockTraineeIssue()
+		err := issueHandler.UpdateBlockTraineeIssue()
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	if n == 7 {
-		err := th.RemoveVPNGroupsFromUsers()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
+	// if n == 7 {
+	// 	err := activeDirectoryService.RemoveVPNGroupsFromUsers()
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// }
 
 	if n == 8 {
-		err := th.AddUserToGroupFromJiraIssue()
+		err := issueHandler.AddUserToGroupFromJiraIssue()
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	if n == 9 {
-		err := th.CheckUserStatus()
+		err := issueHandler.CheckUserStatus()
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	if n == 10 {
-		err := th.MoveUsersToNewOU()
+	// if n == 10 {
+	// 	err := th.MoveUsersToNewOU()
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// }
+
+	if n == 11 {
+		err := issueHandler.AddUserToGroupFromCLI()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if n == 12 {
+		err := issueHandler.ProcessDismissalOrHiringIssue()
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/csv"
 	"fmt"
+	"main/internal/interfaces"
+	"main/internal/models"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -16,12 +18,12 @@ import (
 type dismissalService struct {
 }
 
-func NewDismissalService() DismissalService {
+func NewDismissalService() interfaces.DismissalService {
 	return &dismissalService{}
 }
 
-func (s *dismissalService) CreateDismissalRecord(row []string) (*DismissalRecord, error) {
-	record := new(DismissalRecord)
+func (s *dismissalService) CreateDismissalRecord(row []string) (*models.DismissalRecord, error) {
+	record := new(models.DismissalRecord)
 
 	for i, value := range row {
 		if i == 0 {
@@ -55,7 +57,7 @@ func (s *dismissalService) CreateDismissalRecord(row []string) (*DismissalRecord
 	return record, nil
 }
 
-func (s *dismissalService) CreateTemplate(record *DismissalRecord, templateName string) ([]byte, error) {
+func (s *dismissalService) CreateTemplate(record *models.DismissalRecord, templateName string) ([]byte, error) {
 	filepath := fmt.Sprintf("templates/%v.html", templateName)
 
 	tmpl := template.Must(template.ParseFiles(filepath))

@@ -4,25 +4,26 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"main/internal/interfaces"
 	"os"
 
 	ldap "github.com/go-ldap/ldap/v3"
 )
 
-type adService struct {
+type activeDirectoryService struct {
 	conn *ldap.Conn
 }
 
-func NewAdService(conn *ldap.Conn) AdService {
-	return &adService{conn: conn}
+func NewActiveDirectoryService(conn *ldap.Conn) interfaces.ActiveDirectoryService {
+	return &activeDirectoryService{conn: conn}
 }
 
-func (s *adService) GetByCN(cn string) (*ldap.Entry, error) {
+func (s *activeDirectoryService) GetByCN(cn string) (*ldap.Entry, error) {
 	if cn == "" {
 		return nil, errors.New("empty cn")
 	}
 
-	baseDN := os.Getenv("BASE_DN")
+	baseDN := os.Getenv("LDAP_BASE_DN")
 	filter := fmt.Sprintf("(cn=%s)", ldap.EscapeFilter(cn))
 
 	searchGroupReq := ldap.NewSearchRequest(baseDN, ldap.ScopeWholeSubtree, 0, 0, 0, false, filter, []string{"sAMAccountName", "cn"}, []ldap.Control{})
@@ -38,19 +39,22 @@ func (s *adService) GetByCN(cn string) (*ldap.Entry, error) {
 
 }
 
-func (s *adService) GetByEmail(email string) (*ldap.Entry, error) {
+func (s *activeDirectoryService) GetByEmail(email string) (*ldap.Entry, error) {
 	if email == "" {
 		return nil, errors.New("empty email")
 	}
 
-	baseDN := os.Getenv("BASE_DN")
+	baseDN := os.Getenv("LDAP_BASE_DN")
 	filter := fmt.Sprintf("(mail=%s)", ldap.EscapeFilter(email))
 
 	searchUserReq := ldap.NewSearchRequest(baseDN, ldap.ScopeWholeSubtree, 0, 0, 0, false, filter, []string{"sAMAccountName", "memberOf", "mail", "userAccountControl"}, []ldap.Control{})
 
 	userRes, err := s.conn.Search(searchUserReq)
 	if err != nil {
-		log.Fatal("failed to query LDAP: %w", err)
+		return nil, fmt.Errorf("failed to query LDAP: %w", err)
+	}
+	if len(userRes.Entries) > 1 {
+		return nil, fmt.Errorf("found multiple accounts for %v", email)
 	}
 
 	user := userRes.Entries[0]
@@ -58,11 +62,11 @@ func (s *adService) GetByEmail(email string) (*ldap.Entry, error) {
 	return user, nil
 }
 
-func (s *adService) GetUserGroups(user *ldap.Entry) []string {
+func (s *activeDirectoryService) GetUserGroups(user *ldap.Entry) []string {
 	return user.GetAttributeValues("memberOf")
 }
 
-func (s *adService) ExtractCNFromDN(dn string) (string, error) {
+func (s *activeDirectoryService) ExtractCNFromDN(dn string) (string, error) {
 	parsedDN, err := ldap.ParseDN(dn)
 	if err != nil {
 		return "", err
@@ -78,7 +82,7 @@ func (s *adService) ExtractCNFromDN(dn string) (string, error) {
 	return "", fmt.Errorf("CN not found in DN: %s", dn)
 }
 
-func (s *adService) RemoveUserFromGroup(user, group *ldap.Entry) (*ldap.Entry, error) {
+func (s *activeDirectoryService) RemoveUserFromGroup(user, group *ldap.Entry) (*ldap.Entry, error) {
 	modify := ldap.NewModifyRequest(group.DN, []ldap.Control{})
 	modify.Delete("member", []string{user.DN})
 
@@ -97,7 +101,7 @@ func (s *adService) RemoveUserFromGroup(user, group *ldap.Entry) (*ldap.Entry, e
 	return updatedUser, nil
 }
 
-func (s *adService) AddUserToGroup(user, group *ldap.Entry) (*ldap.Entry, error) {
+func (s *activeDirectoryService) AddUserToGroup(user, group *ldap.Entry) (*ldap.Entry, error) {
 	if user == nil {
 		return nil, errors.New("empty user")
 
@@ -126,7 +130,7 @@ func (s *adService) AddUserToGroup(user, group *ldap.Entry) (*ldap.Entry, error)
 
 }
 
-func (s *adService) UpdateDN(user *ldap.Entry, newSup string) (*ldap.Entry, error) {
+func (s *activeDirectoryService) UpdateDN(user *ldap.Entry, newSup string) (*ldap.Entry, error) {
 	cn := user.GetAttributeValue("cn")
 	rdn := fmt.Sprintf("CN=%v", cn)
 

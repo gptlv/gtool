@@ -4,24 +4,26 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"main/internal/interfaces"
+	"main/internal/models"
 
 	"github.com/andygrunwald/go-jira"
 )
 
-type objectService struct {
+type assetService struct {
 	client *jira.Client
 }
 
-func NewObjectService(client *jira.Client) ObjectService {
-	return &objectService{client: client}
+func NewAssetService(client *jira.Client) interfaces.AssetService {
+	return &assetService{client: client}
 }
 
-func (s *objectService) GetAll(iql string) (*GetObjectRes, error) {
+func (s *assetService) GetAll(iql string) (*models.GetObjectRes, error) {
 	if iql == "" {
 		return nil, fmt.Errorf("empty iql")
 	}
 
-	res := &GetObjectRes{}
+	res := &models.GetObjectRes{}
 
 	base := "rest/insight/1.0/iql/objects?iql="
 	endpoint := base + iql + "&objectSchemaId=41"
@@ -39,12 +41,12 @@ func (s *objectService) GetAll(iql string) (*GetObjectRes, error) {
 	return res, nil
 }
 
-func (s *objectService) Update(payload *Object) (*Object, error) {
+func (s *assetService) Update(payload *models.Object) (*models.Object, error) {
 	if payload == nil {
 		return nil, fmt.Errorf("empty payload")
 	}
 
-	object := &Object{}
+	object := &models.Object{}
 
 	endpoint := fmt.Sprintf("rest/insight/1.0/object/%v/", payload.ObjectKey)
 
@@ -61,7 +63,7 @@ func (s *objectService) Update(payload *Object) (*Object, error) {
 	return object, nil
 }
 
-func (s *objectService) GetByISC(ISC string) (*Object, error) {
+func (s *assetService) GetByISC(ISC string) (*models.Object, error) {
 	objectEndPoint := fmt.Sprintf(endpoints.GetObjectByISC, ISC)
 
 	req, err := s.client.NewRequest("GET", objectEndPoint, nil)
@@ -69,7 +71,7 @@ func (s *objectService) GetByISC(ISC string) (*Object, error) {
 		return nil, fmt.Errorf("failed to create a request: %w", err)
 	}
 
-	object := new(Object)
+	object := new(models.Object)
 
 	_, err = s.client.Do(req, object)
 	if err != nil {
@@ -80,7 +82,7 @@ func (s *objectService) GetByISC(ISC string) (*Object, error) {
 
 }
 
-func (s *objectService) GetAttachments(object *Object) ([]Attachment, error) {
+func (s *assetService) GetAttachments(object *models.Object) ([]models.Attachment, error) {
 	objectAttachmentsEndPoint := fmt.Sprintf(endpoints.GetAttachments, object.ID)
 
 	req, err := s.client.NewRequest("GET", objectAttachmentsEndPoint, nil)
@@ -88,7 +90,7 @@ func (s *objectService) GetAttachments(object *Object) ([]Attachment, error) {
 		return nil, fmt.Errorf("failed to create a request: %w", err)
 	}
 
-	attachments := new([]Attachment)
+	attachments := new([]models.Attachment)
 
 	_, err = s.client.Do(req, attachments)
 	if err != nil {
@@ -99,7 +101,7 @@ func (s *objectService) GetAttachments(object *Object) ([]Attachment, error) {
 
 }
 
-func (s *objectService) DisableUser(user *Object) (*Object, error) {
+func (s *assetService) DisableUser(user *models.Object) (*models.Object, error) {
 	payload := new(UserAttributesPayload)
 	body := fmt.Sprintf(userAttributePayloadBody, 4220, 100)
 
@@ -123,7 +125,7 @@ func (s *objectService) DisableUser(user *Object) (*Object, error) {
 	return user, nil
 }
 
-func (s *objectService) SetUserCategory(user *Object, category string) (*Object, error) {
+func (s *assetService) SetUserCategory(user *models.Object, category string) (*models.Object, error) {
 	if category != "BYOD" && category != "Corporate laptop" {
 		return nil, errors.New("invalid user category")
 	}
@@ -151,7 +153,7 @@ func (s *objectService) SetUserCategory(user *Object, category string) (*Object,
 	return user, nil
 }
 
-func (s *objectService) Search(endpoint string) (*GetObjectRes, error) {
+func (s *assetService) Search(endpoint string) (*GetObjectRes, error) {
 	req, err := s.client.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a request: %w", err)
@@ -167,7 +169,7 @@ func (s *objectService) Search(endpoint string) (*GetObjectRes, error) {
 	return res, nil
 }
 
-func (s *objectService) GetUserByEmail(email string) (*Object, error) {
+func (s *assetService) GetUserByEmail(email string) (*models.Object, error) {
 	if email == "" {
 		return nil, fmt.Errorf("empty email")
 	}
@@ -189,7 +191,7 @@ func (s *objectService) GetUserByEmail(email string) (*Object, error) {
 	return &res.ObjectEntries[0], nil
 }
 
-func (s *objectService) GetUserLaptops(user *Object) (*GetObjectRes, error) {
+func (s *assetService) GetUserLaptops(user *models.Object) (*models.GetObjectRes, error) {
 	email := s.GetUserEmail(user)
 	if email == "" {
 		return nil, fmt.Errorf("empty user email")
@@ -214,7 +216,7 @@ func (s *objectService) GetUserLaptops(user *Object) (*GetObjectRes, error) {
 	return laptops, nil
 }
 
-func (s *objectService) GetUserEmail(user *Object) string {
+func (s *assetService) GetUserEmail(user *models.Object) string {
 	for _, attr := range user.Attributes {
 		if attr.ObjectTypeAttributeID == USER_EMAIL_ATTRIBUTE_ID {
 			return attr.ObjectAttributeValues[0].Value
@@ -224,12 +226,12 @@ func (s *objectService) GetUserEmail(user *Object) string {
 	return ""
 }
 
-func (s *objectService) GetLaptopDescription(laptop *Object) (*LaptopDescription, error) {
+func (s *assetService) GetLaptopDescription(laptop *models.Object) (*models.LaptopDescription, error) {
 	if laptop == nil {
 		return nil, fmt.Errorf("empty laptop")
 	}
 
-	description := &LaptopDescription{}
+	description := &models.LaptopDescription{}
 
 	for _, attribute := range laptop.Attributes {
 		attributeValue := attribute.ObjectAttributeValues[0].Value

@@ -37,12 +37,12 @@ var blockByIssuePayloadBody = `
 
 var BlockUntilTomorrowPayloadBody = `
 {
-	"transition": {
-		"id": "3007915"
-	},
-	"fields": {
-		"customfield_10253":"19.06.2024"
-	}
+    "transition": {
+        "id": "%v"
+    },
+    "fields": {
+        "customfield_10253": "%v"
+    }
 }
 `
 

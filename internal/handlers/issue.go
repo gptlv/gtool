@@ -1,139 +1,118 @@
-package controllers
+package handlers
 
 import (
 	"errors"
 	"fmt"
 	"main/internal/interfaces"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/andygrunwald/go-jira"
 	"github.com/charmbracelet/log"
+	"github.com/go-ldap/ldap/v3"
 	"github.com/savioxavier/termlink"
 )
 
-type IssueHandler struct {
+type issueHandler struct {
 	issueService           interfaces.IssueService
 	activeDirectoryService interfaces.ActiveDirectoryService
 	assetService           interfaces.AssetService
 }
 
-func NewIssueHandler(issueService interfaces.IssueService, activeDirectoryService interfaces.ActiveDirectoryService) *IssueHandler {
-	return &IssueHandler{issueService: issueService, activeDirectoryService: activeDirectoryService}
+func NewIssueHandler(issueService interfaces.IssueService, activeDirectoryService interfaces.ActiveDirectoryService) *issueHandler {
+	return &issueHandler{issueService: issueService, activeDirectoryService: activeDirectoryService}
 }
 
-func (issueHandler *IssueHandler) DeactivateInsight() error {
-	jql := `project = "IT Support" AND assignee = currentUser() AND status = open AND summary ~ "Деактивировать в Insight"`
-	var unresolved []*jira.Issue
+func (issueHandler *issueHandler) DeactivateInsight() error {
+	jql := `project = "IT Support" AND assignee = currentUser() AND status = "Open" AND summary ~ "Деактивировать в Insight"`
+	var unresolvedIssues []*jira.Issue
 
-	deactivationIssues, err := h.issueService.GetAll(jql)
+	deactivateInsightIssues, err := issueHandler.issueService.GetAll(jql)
 	if err != nil {
 		return err
 	}
 
-	if len(deactivationIssues) == 0 {
+	if len(deactivateInsightIssues) == 0 {
 		return errors.New("no deactivation issues")
 	}
 
-	for _, di := range deactivationIssues {
+	for _, deactivateInsightIssue := range deactivateInsightIssues {
 		var commentText string
 
-		fmt.Print("found an issue: ")
-		h.issueService.PrintIssue(&di)
-		parentIssue, err := h.issueService.GetByID(di.Fields.Parent.ID)
+		log.Info(fmt.Sprintf("getting parent issue for: %v", issueHandler.issueService.Summarize(&deactivateInsightIssue)))
+		parentIssue, err := issueHandler.issueService.GetByID(deactivateInsightIssue.Fields.Parent.ID)
 		if err != nil {
 			return err
 		}
 
-		fmt.Print("found a parent issue: ")
-		h.issueService.PrintIssue(parentIssue)
-
-		deactivationSubtask, err := h.issueService.GetSubtaskByComponent(parentIssue, "Insight")
-		if err != nil {
-			return fmt.Errorf("failed to get subtask by component: %w", err)
-		}
-
-		deactivationIssue, err := h.issueService.GetByID(deactivationSubtask.ID)
-		if err != nil {
-			return fmt.Errorf("failed to get deactivation issue by ID: %w", err)
-		}
-
-		subShipment, err := h.issueService.GetSubtaskByComponent(parentIssue, "Возврат оборудования")
+		log.Info(fmt.Sprintf("getting return equipment subtask for: %v", parentIssue.Key))
+		returnEquipmentSubtask, err := issueHandler.issueService.GetSubtaskByComponent(parentIssue, "Возврат оборудования")
 		if err != nil {
 			panic(err)
 		}
 
-		if subShipment.Fields.Status.Name != "Closed" {
-			fmt.Printf("parent issue [%v] has an incomplete subshipment task\n", parentIssue.Key)
-			//block deactivation issue by the aforementioned subshipment
+		if returnEquipmentSubtask.Fields.Status.Name != "Closed" {
+			log.Info(fmt.Sprintf("parent issue %v has incomplete return equipment task", parentIssue.Key))
 
-			blockingIssue, err := h.issueService.GetByID(subShipment.ID)
+			blockingIssue, err := issueHandler.issueService.GetByID(returnEquipmentSubtask.ID)
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("blocking [%v] by [%v]\n", di.Key, blockingIssue.Key)
-			_, err = h.issueService.BlockByIssue(deactivationIssue, blockingIssue)
+			log.Info(fmt.Sprintf("blocking %v by %v", issueHandler.issueService.Summarize(&deactivateInsightIssue), issueHandler.issueService.Summarize(blockingIssue)))
+			_, err = issueHandler.issueService.BlockByIssue(&deactivateInsightIssue, blockingIssue)
 			if err != nil {
 				return err
 			}
 
-			fmt.Println("timeout 5 sec")
+			log.Info("timeout 5 sec")
 			time.Sleep(5 * time.Second)
 
 			continue
 		}
 
-		issue, err := h.issueService.GetByID(parentIssue.ID)
-		if err != nil {
-			return fmt.Errorf("failed to get issue by ID: %w", err)
-		}
-
-		userEmail, err := h.issueService.GetUserEmail(issue)
+		userEmail, err := issueHandler.issueService.GetUserEmail(parentIssue)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("found user email %v\n", userEmail)
+		log.Info(fmt.Sprintf("found user email %v", userEmail))
 
-		user, err := h.assetService.GetUserByEmail(userEmail)
+		user, err := issueHandler.assetService.GetUserByEmail(userEmail)
 		if err != nil {
 			return fmt.Errorf("failed to get user by email: %w", err)
 		}
 
 		if user == nil {
-			fmt.Printf("couldn't find insight user %v\n", userEmail)
+			log.Info(fmt.Sprintf("couldn't find insight user %v", userEmail))
 			commentText = "Пользователя нет в Insight"
 		} else {
-			getUserLaptopsRes, err := h.assetService.GetUserLaptops(user)
+			getUserLaptopsRes, err := issueHandler.assetService.GetUserLaptops(user)
 			if err != nil {
 				return err
 			}
 
 			laptops := getUserLaptopsRes.ObjectEntries
 
-			fmt.Printf("user %v has %v laptops\n", userEmail, len(laptops))
-
-			var category string
+			log.Info(fmt.Sprintf("user %v has %v laptops", userEmail, len(laptops)))
 
 			if len(laptops) > 0 {
-				fmt.Printf("user %v still has attached laptops\n", userEmail)
-				unresolved = append(unresolved, &di)
+				log.Info(fmt.Sprintf("user %v still has attached laptops", userEmail))
+				unresolvedIssues = append(unresolvedIssues, &deactivateInsightIssue)
 				continue
-			} else {
-				category = "BYOD"
 			}
 
-			fmt.Printf("changing %v's status to %v\n", user.ObjectKey, category)
-			_, err = h.assetService.SetUserCategory(user, category)
+			category := "BYOD"
+
+			log.Info(fmt.Sprintf("changing %v's status to %v", user.ObjectKey, category))
+			_, err = issueHandler.assetService.SetUserCategory(user, category)
 			if err != nil {
 				return fmt.Errorf("failed to set user category: %w", err)
 			}
 
-			fmt.Printf("disabling %v\n", user.ObjectKey)
-			_, err = h.assetService.DisableUser(user)
+			log.Info(fmt.Sprintf("disabling %v", user.ObjectKey))
+			_, err = issueHandler.assetService.DisableUser(user)
 			if err != nil {
 				return fmt.Errorf("failed to disable user: %w", err)
 			}
@@ -141,47 +120,45 @@ func (issueHandler *IssueHandler) DeactivateInsight() error {
 			commentText = "[https://wiki.sbmt.io/x/sPjivQ]"
 		}
 
-		_, err = h.issueService.Close(deactivationIssue)
+		_, err = issueHandler.issueService.Close(&deactivateInsightIssue)
 		if err != nil {
 			return fmt.Errorf("failed to close deactivation issue: %w", err)
 		}
 
-		fmt.Printf("adding internal comment to [%v]\n", deactivationIssue.Key)
-		_, err = h.issueService.WriteInternalComment(deactivationIssue, commentText)
+		log.Info(fmt.Sprintf("adding internal comment to %v", deactivateInsightIssue.Key))
+		_, err = issueHandler.issueService.WriteInternalComment(&deactivateInsightIssue, commentText)
 		if err != nil {
-			return fmt.Errorf("failed to write comment: %w", err)
+			return fmt.Errorf("failed to write internal comment: %w", err)
 		}
 
-		fmt.Println("timeout 5 sec")
+		log.Info("timeout 5 sec")
 		time.Sleep(5 * time.Second)
 
 	}
 
-	if len(unresolved) > 0 {
-		fmt.Print("unresolved issues:\n")
-		for i, ui := range unresolved {
-			fmt.Printf("%v. ", i+1)
-			h.issueService.PrintIssue(ui)
+	if len(unresolvedIssues) > 0 {
+		log.Info("unresolved issues")
+		for i, unresolvedIssue := range unresolvedIssues {
+			log.Info(fmt.Sprintf("%v. %v", i+1, issueHandler.issueService.Summarize(unresolvedIssue)))
 		}
 	}
 
 	return nil
 }
 
-func (issueHandler *IssueHandler) GrantPermission() error {
+func (issueHandler *issueHandler) AddUserToGroupFromJiraIssue() error {
 	var adGroupCN string
 	var issueKey string
 
 	fmt.Print("enter issue key: ")
 	fmt.Scanln(&issueKey)
-	// issueKey := "SD-735229"
 
 	log.Info(fmt.Sprintf("Getting issue by key %v", issueKey))
-	issue, err := h.issueService.GetByID(issueKey)
+	issue, err := issueHandler.issueService.GetByID(issueKey)
 	if err != nil {
 		return fmt.Errorf("failed to get issue by key: %w", err)
 	}
-	log.Info(fmt.Sprintf("Found issue: %v", h.issueService.Summarize(issue)))
+	log.Info(fmt.Sprintf("Found issue: %v", issueHandler.issueService.Summarize(issue)))
 
 	roleInfo := issue.Fields.Unknowns["customfield_13063"].([]interface{})[0].(string) //unreliable
 	roleInfoArray := strings.Split(roleInfo, " ")
@@ -190,7 +167,7 @@ func (issueHandler *IssueHandler) GrantPermission() error {
 
 	log.Info(fmt.Sprintf("Getting information resource by key %v", informationResourceKey))
 
-	informationResource, err := h.assetService.GetByISC(informationResourceKey)
+	informationResource, err := issueHandler.assetService.GetByISC(informationResourceKey)
 	if err != nil {
 		return fmt.Errorf("failed to get information resource by key: %w", err)
 	}
@@ -198,38 +175,42 @@ func (issueHandler *IssueHandler) GrantPermission() error {
 
 	for _, attribute := range informationResource.Attributes {
 		if attribute.ObjectTypeAttributeID == 8527 {
-			adGroupCN = attribute.ObjectAttributeValues[0].Value
+			adGroupCN = strings.TrimSpace(attribute.ObjectAttributeValues[0].Value)
 		}
 	}
 
 	if adGroupCN == "" {
 		return errors.New("empty ad group CN")
 	}
-	log.Info(fmt.Sprintf("Found AD group: %v", adGroupCN))
 
-	summary := strings.Split(issue.Fields.Summary, " ")
-	email := summary[len(summary)-1]
+	fmt.Println(adGroupCN)
 
-	log.Info(fmt.Sprintf("Getting AD user by email: %v", email))
-	user, err := h.adService.GetByEmail(email)
-	if err != nil {
-		return fmt.Errorf("failed to get user by email: %w", err)
-	}
-	group, err := h.adService.GetByCN(adGroupCN)
+	group, err := issueHandler.activeDirectoryService.GetByCN(adGroupCN)
 	if err != nil {
 		return fmt.Errorf("failed to get group by cn: %w", err)
 	}
 
+	log.Info(fmt.Sprintf("Found AD group: %v", adGroupCN))
+
+	summary := strings.Split(strings.TrimSpace(issue.Fields.Summary), " ") // won't work
+	email := summary[len(summary)-1]
+
+	log.Info(fmt.Sprintf("Getting AD user by email: %v", email))
+	user, err := issueHandler.activeDirectoryService.GetByEmail(email)
+	if err != nil {
+		return fmt.Errorf("failed to get user by email: %w", err)
+	}
+
 	log.Info(fmt.Sprintf("Adding user %v to group %v", user.GetAttributeValue("mail"), group.GetAttributeValue("cn")))
-	_, err = h.adService.AddUserToGroup(user, group)
+	_, err = issueHandler.activeDirectoryService.AddUserToGroup(user, group)
 	if err != nil {
 		return fmt.Errorf("failed to add user %v to group %v : %w", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err)
 	}
 
 	commentText := "[https://wiki.sbmt.io/x/WcPivQ]"
 
-	log.Info(fmt.Sprintf("adding internal comment to [%v]\n", issue.Key))
-	_, err = h.issueService.WriteInternalComment(issue, commentText)
+	log.Info(fmt.Sprintf("adding internal comment to [%v]", issue.Key))
+	_, err = issueHandler.issueService.WriteInternalComment(issue, commentText)
 	if err != nil {
 		return fmt.Errorf("failed to write comment: %w", err)
 	}
@@ -237,13 +218,13 @@ func (issueHandler *IssueHandler) GrantPermission() error {
 	return nil
 }
 
-func (issueHandler *IssueHandler) UpdateBlockTraineeIssue() error {
+func (issueHandler *issueHandler) UpdateBlockTraineeIssue() error {
 	var issueKey string
 
 	fmt.Print("enter issue key: ")
 	fmt.Scanln(&issueKey)
 
-	issue, err := h.issueService.GetByID(issueKey)
+	issue, err := issueHandler.issueService.GetByID(issueKey)
 	if err != nil {
 		return fmt.Errorf("failed to get issue by key: %w", err)
 	}
@@ -253,7 +234,7 @@ func (issueHandler *IssueHandler) UpdateBlockTraineeIssue() error {
 	issueLinks := issue.Fields.IssueLinks
 	for _, issueLink := range issueLinks {
 		if issueLink.Type.Inward == "is caused by" {
-			causingIssue, err = h.issueService.GetByID(issueLink.InwardIssue.ID)
+			causingIssue, err = issueHandler.issueService.GetByID(issueLink.InwardIssue.ID)
 			if err != nil {
 				return fmt.Errorf("failed to get issue %v by id: %w", issueLink.InwardIssue.Key, err)
 			}
@@ -265,11 +246,11 @@ func (issueHandler *IssueHandler) UpdateBlockTraineeIssue() error {
 	fmt.Printf("user email: %v\n", email)
 
 	for _, st := range issue.Fields.Subtasks {
-		subtaskIssue, err := h.issueService.GetByID(st.ID)
+		subtaskIssue, err := issueHandler.issueService.GetByID(st.ID)
 		if err != nil {
 			return fmt.Errorf("failed to get subtask %v: %w", st.Key, err)
 		}
-		h.issueService.PrintIssue(subtaskIssue)
+		issueHandler.issueService.PrintIssue(subtaskIssue)
 
 		currentSummary := strings.TrimSpace(subtaskIssue.Fields.Summary)
 
@@ -287,124 +268,233 @@ func (issueHandler *IssueHandler) UpdateBlockTraineeIssue() error {
 			},
 		}
 
-		_, err = h.issueService.Update(subtaskIssue, c)
+		_, err = issueHandler.issueService.Update(subtaskIssue, c)
 		if err != nil {
 			return fmt.Errorf("failed to update summary for %v: %w", subtaskIssue.Key, err)
 		}
 
-		time.Sleep(longTimeout * time.Second)
+		time.Sleep(time.Second)
 	}
 
 	return nil
+
 }
 
-func (issueHandler *IssueHandler) ShowIssuesWithEmptyComponent() error {
+func (issueHandler *issueHandler) ShowIssuesWithEmptyComponent() error {
 	jql := `project = SD AND component = EMPTY AND assignee in (EMPTY) AND resolution = Unresolved and updated > startOfDay()`
 	for {
 		fmt.Print("\033[H\033[2J")
-		issues, err := h.issueService.GetAll(jql)
+		issues, err := issueHandler.issueService.GetAll(jql)
 		if err != nil {
 			return fmt.Errorf("failed to get all issues with empty component: %w", err)
 		}
 
 		for _, issue := range issues {
-			summary := h.issueService.Summarize(&issue)
-			issueLink := fmt.Sprintf("%v/browse/%v", os.Getenv("JIRA_URL"), issue.Key)
+			summary := issueHandler.issueService.Summarize(&issue)
+			issueLink := fmt.Sprintf("https://jira.sbmt.io/browse/%v", issue.Key)
 
 			fmt.Println(termlink.Link(summary, issueLink))
 		}
 
-		time.Sleep(longTimeout * time.Second)
+		time.Sleep(5 * time.Second)
 
 	}
-}
-func (issueHandler *IssueHandler) BlockDismissedUserInActiveDirectory() error {
-	//project = sd and assignee = empty and resolution = unresolved and text ~ "Блокировка УЗ в AD" and due < endOfWeek() and type = Sub-task and component = AD
-	var issueKey string
-
-	fmt.Print("enter issue key: ")
-	fmt.Scanln(&issueKey)
-	// issueKey := "SD-731877"
-
-	log.Info(fmt.Sprintf("Getting issue by key %v", issueKey))
-	issue, err := h.issueService.GetByID(issueKey)
-	if err != nil {
-		return fmt.Errorf("failed to get issue by key: %w", err)
-	}
-	log.Info(fmt.Sprintf("Found issue: %v", h.issueService.Summarize(issue)))
-	//summary: 19.06 Создать УЗ AD для заявки на стажера Иванов Иван Иванович
-	summary := strings.Split(issue.Fields.Summary, " ") // won't work
-	email := summary[len(summary)-1]
-
-	log.Info(fmt.Sprintf("Getting AD user by email: %v", email))
-	//! what if more than one user has the same name
-	user, err := h.adService.GetByEmail(email)
-	if err != nil {
-		return fmt.Errorf("failed to get user by email: %w", err)
-	}
-
-	flags := user.GetAttributeValue("userAccountControl") //512 -- active, 514 -- inactive
-
-	flagsInt, err := strconv.Atoi(flags)
-	if err != nil {
-		return fmt.Errorf("failed to convert userAccountControl to int")
-	}
-
-	status := "unknown"
-
-	if flagsInt == 512 {
-		status = "active"
-		_, err := h.issueService.BlockUntilTomorrow(issue)
-		if err != nil {
-			return fmt.Errorf("failed to block issue until tomorrow: %w", err)
-		}
-		//block until tomorrow
-	}
-
-	if flagsInt == 514 {
-		//add comment, close the issue
-		status = "inactive"
-		_, err := h.issueService.Close(issue)
-		if err != nil {
-			return fmt.Errorf("failed to close issue: %w", err)
-		}
-
-		_, err = h.issueService.WriteInternalComment(issue, "Заблокировал idm")
-		if err != nil {
-			return fmt.Errorf("failed to write internal comment: %w", err)
-		}
-
-		_, err = h.issueService.WriteInternalComment(issue, "[https://wiki.sbmt.io/x/mB6zsg]")
-		if err != nil {
-			return fmt.Errorf("failed to write internal comment: %w", err)
-		}
-	}
-
-	log.Info(fmt.Sprintf("user's %v status is %v", email, status))
-
-	return nil
 
 }
 
-func (issueHandler *IssueHandler) AssignAllDeactivateInsightIssuesToMe() error {
-	// jql := ""
-	jql := `project = SD and assignee = empty and summary ~ "Деактивировать в Insight" and resolution = unresolved and "Postpone until" < endOfWeek()`
+func (issueHandler *issueHandler) AssignAllDeactivateInsightIssuesToMe() error {
+	jql := `project = SD and assignee = empty and (summary ~ "Деактивировать в Insight" or summary ~ "Блокировка УЗ в AD") and component in (Insight, AD) and resolution = unresolved and "Postpone until" < endOfMonth()`
 
-	insightIssues, err := h.issueService.GetAll(jql)
+	insightIssues, err := issueHandler.issueService.GetAll(jql)
 	if err != nil {
 		return fmt.Errorf("failed to get all insight issues to assign: %w", err)
 	}
 
 	for _, insightIssue := range insightIssues {
-		_, err = h.issueService.AssignIssueToMe(&insightIssue)
-		fmt.Printf("assigning [%v] %v to self\n", insightIssue.Key, insightIssue.Fields.Summary)
+		_, err = issueHandler.issueService.AssignIssueToMe(&insightIssue)
+		log.Info(fmt.Sprintf("assigning [%v] %v to self\n", insightIssue.Key, insightIssue.Fields.Summary))
 		if err != nil {
 			return fmt.Errorf("failed to assign issue to me: %w", err)
 		}
 
-		time.Sleep(shortTimeout * time.Second)
+		time.Sleep(time.Second)
 
 	}
 
+	return nil
+}
+
+func (issueHandler *issueHandler) AddUserToGroupFromCLI() error {
+	var emailList string
+	var activeDirectoryGroupCNList string
+
+	var users []*ldap.Entry
+	var groups []*ldap.Entry
+
+	fmt.Print("enter user(s) email: ")
+	fmt.Scanln(&emailList)
+
+	fmt.Print("enter group(s) cn: ")
+	fmt.Scanln(&activeDirectoryGroupCNList)
+
+	emails := strings.Fields(emailList)
+	groupCNs := strings.Fields(activeDirectoryGroupCNList)
+
+	for _, email := range emails {
+		log.Info(fmt.Sprintf("getting AD user by email: %v", email))
+		user, err := issueHandler.activeDirectoryService.GetByEmail(email)
+		if err != nil {
+			return fmt.Errorf("failed to get user by email: %w", err)
+		}
+
+		users = append(users, user)
+	}
+
+	for _, groupCN := range groupCNs {
+		log.Info("getting AD group by cn: %v", groupCN)
+		group, err := issueHandler.activeDirectoryService.GetByCN(groupCN)
+		if err != nil {
+			return fmt.Errorf("failed to get group by cn: %w", err)
+		}
+
+		groups = append(groups, group)
+	}
+
+	for _, user := range users {
+		for _, group := range groups {
+			log.Info(fmt.Sprintf("adding user %v to group %v", user.GetAttributeValue("mail"), group.GetAttributeValue("cn")))
+			_, err := issueHandler.activeDirectoryService.AddUserToGroup(user, group)
+			if err != nil {
+				return fmt.Errorf("failed to add user %v to group %v: %w", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err)
+			}
+
+		}
+	}
+
+	return nil
+}
+
+func (issueHandler *issueHandler) ProcessDismissalOrHiringIssue() error {
+	jql := `project = "IT Support" and assignee = currentUser() and component in (Dismissal, Hiring) and (text ~ "Прием" or text ~ "Увольнение") and status = open`
+	issues, err := issueHandler.issueService.GetAll(jql)
+	if err != nil {
+		return fmt.Errorf("failed to get all issues: %w", err)
+	}
+
+	for _, issue := range issues {
+		log.Info(fmt.Sprintf("processing issue %v", issueHandler.issueService.Summarize(&issue)))
+		log.Info(fmt.Sprintf("getting unresolved subtask for %v", issue.Key))
+		unresolvedSubtask, err := issueHandler.issueService.GetUnresolvedSubtask(&issue)
+		if err != nil {
+			return fmt.Errorf("failed to get unresolved subtask: %w", err)
+		}
+
+		if unresolvedSubtask != nil {
+			log.Info(fmt.Sprintf("found unresolved subtask: %v %v", unresolvedSubtask.Key, unresolvedSubtask.Fields.Summary))
+			log.Info(fmt.Sprintf("blocking main issue %v by unresolved subtask %v", issue.Key, unresolvedSubtask.Key))
+			_, err := issueHandler.issueService.BlockByIssue(&issue, unresolvedSubtask)
+			if err != nil {
+				return fmt.Errorf("failed to block by issue")
+			}
+
+			continue
+		}
+
+		log.Info("all subtasks are resolved")
+		log.Info("closing the issue")
+		_, err = issueHandler.issueService.Close(&issue)
+		if err != nil {
+			return fmt.Errorf("failed to close issue %v: %w", issue.Key, err)
+		}
+
+		var comment string
+
+		for _, component := range issue.Fields.Components {
+			if component.Name == "Dismissal" {
+				comment = "[https://wiki.sbmt.io/x/jgeLvg]"
+			}
+
+			if component.Name == "Hiring" {
+				comment = "[https://wiki.sbmt.io/x/ogeLvg]"
+			}
+		}
+
+		log.Info("adding internal comment")
+
+		_, err = issueHandler.issueService.WriteInternalComment(&issue, comment)
+		if err != nil {
+			return fmt.Errorf("failed to write internal comment to %v: %w", issue.Key, err)
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+
+	return nil
+}
+
+func (issueHandler *issueHandler) CheckUserStatus() error {
+	jql := `project = "IT Support" AND assignee = currentUser() AND status = open AND summary ~ "Блокировка УЗ в AD для"`
+
+	blockIssues, err := issueHandler.issueService.GetAll(jql)
+	if err != nil {
+		return err
+	}
+
+	if len(blockIssues) == 0 {
+		return errors.New("no deactivation issues")
+	}
+
+	for _, issue := range blockIssues {
+		log.Info(fmt.Sprintf("Found issue: %v", issueHandler.issueService.Summarize(&issue)))
+		//summary: 19.06 Создать УЗ AD для заявки на стажера Иванов Иван Иванович
+		summary := strings.Split(strings.TrimSpace(issue.Fields.Summary), " ") // won't work
+		email := summary[len(summary)-1]
+
+		log.Info(fmt.Sprintf("Getting AD user by email: %v", email))
+		user, err := issueHandler.activeDirectoryService.GetByEmail(email)
+		if err != nil {
+			return fmt.Errorf("failed to get user by email: %w", err)
+		}
+
+		flag := user.GetAttributeValue("userAccountControl") //512 -- active, 514 -- inactive
+
+		flagInt, err := strconv.Atoi(flag)
+		if err != nil {
+			return fmt.Errorf("failed to convert userAccountControl to int")
+		}
+
+		if flagInt == 512 {
+			log.Info(fmt.Sprintf("user %v is active", email))
+			log.Info(fmt.Sprintf("blocking issue %v until tomorrow", issue.Key))
+
+			_, err := issueHandler.issueService.BlockUntilTomorrow(&issue)
+			if err != nil {
+				return fmt.Errorf("failed to block issue until tomorrow: %w", err)
+			}
+
+		}
+
+		if flagInt == 514 {
+			log.Info(fmt.Sprintf("user %v is inactive", email))
+
+			log.Info(fmt.Sprintf("closing issue %v", issue.Key))
+			_, err := issueHandler.issueService.Close(&issue)
+			if err != nil {
+				return fmt.Errorf("failed to close issue: %w", err)
+			}
+
+			log.Info(fmt.Sprintf("writing internal comment to %v", issue.Key))
+			_, err = issueHandler.issueService.WriteInternalComment(&issue, "Заблокировал idm")
+			if err != nil {
+				return fmt.Errorf("failed to write internal comment: %w", err)
+			}
+
+			_, err = issueHandler.issueService.WriteInternalComment(&issue, "[https://wiki.sbmt.io/x/mB6zsg]")
+			if err != nil {
+				return fmt.Errorf("failed to write internal comment: %w", err)
+			}
+		}
+		time.Sleep(5 * time.Second)
+	}
 	return nil
 }
