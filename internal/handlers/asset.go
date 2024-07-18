@@ -10,7 +10,7 @@ type assetHandler struct {
 	assetService interfaces.AssetService
 }
 
-func NewAssetHandler(assetService interfaces.AssetService) interfaces.AssetHandler {
+func NewAssetHandler(assetService interfaces.AssetService) *assetHandler {
 	return &assetHandler{assetService: assetService}
 }
 

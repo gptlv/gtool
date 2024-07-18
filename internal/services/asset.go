@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"main/config"
 	"main/internal/interfaces"
 	"main/internal/models"
 
@@ -18,7 +19,7 @@ func NewAssetService(client *jira.Client) interfaces.AssetService {
 	return &assetService{client: client}
 }
 
-func (s *assetService) GetAll(iql string) (*models.GetObjectRes, error) {
+func (assetService *assetService) GetAll(iql string) (*models.GetObjectRes, error) {
 	if iql == "" {
 		return nil, fmt.Errorf("empty iql")
 	}
@@ -28,12 +29,12 @@ func (s *assetService) GetAll(iql string) (*models.GetObjectRes, error) {
 	base := "rest/insight/1.0/iql/objects?iql="
 	endpoint := base + iql + "&objectSchemaId=41"
 
-	req, err := s.client.NewRequest("GET", endpoint, nil)
+	req, err := assetService.client.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a request: %w", err)
 	}
 
-	_, err = s.client.Do(req, res)
+	_, err = assetService.client.Do(req, res)
 	if err != nil {
 		return nil, fmt.Errorf("failed to do a request: %w", err)
 	}
@@ -41,7 +42,7 @@ func (s *assetService) GetAll(iql string) (*models.GetObjectRes, error) {
 	return res, nil
 }
 
-func (s *assetService) Update(payload *models.Object) (*models.Object, error) {
+func (assetService *assetService) Update(payload *models.Object) (*models.Object, error) {
 	if payload == nil {
 		return nil, fmt.Errorf("empty payload")
 	}
@@ -50,12 +51,12 @@ func (s *assetService) Update(payload *models.Object) (*models.Object, error) {
 
 	endpoint := fmt.Sprintf("rest/insight/1.0/object/%v/", payload.ObjectKey)
 
-	req, err := s.client.NewRequest("PUT", endpoint, payload)
+	req, err := assetService.client.NewRequest("PUT", endpoint, payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a request: %w", err)
 	}
 
-	_, err = s.client.Do(req, object)
+	_, err = assetService.client.Do(req, object)
 	if err != nil {
 		return nil, fmt.Errorf("failed to do a request: %w", err)
 	}
@@ -63,17 +64,17 @@ func (s *assetService) Update(payload *models.Object) (*models.Object, error) {
 	return object, nil
 }
 
-func (s *assetService) GetByISC(ISC string) (*models.Object, error) {
-	objectEndPoint := fmt.Sprintf(endpoints.GetObjectByISC, ISC)
+func (assetService *assetService) GetByISC(ISC string) (*models.Object, error) {
+	objectEndPoint := fmt.Sprintf(models.Endpoints.GetObjectByISC, ISC)
 
-	req, err := s.client.NewRequest("GET", objectEndPoint, nil)
+	req, err := assetService.client.NewRequest("GET", objectEndPoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a request: %w", err)
 	}
 
 	object := new(models.Object)
 
-	_, err = s.client.Do(req, object)
+	_, err = assetService.client.Do(req, object)
 	if err != nil {
 		return nil, fmt.Errorf("failed to do a request: %w", err)
 	}
@@ -82,17 +83,17 @@ func (s *assetService) GetByISC(ISC string) (*models.Object, error) {
 
 }
 
-func (s *assetService) GetAttachments(object *models.Object) ([]models.Attachment, error) {
-	objectAttachmentsEndPoint := fmt.Sprintf(endpoints.GetAttachments, object.ID)
+func (assetService *assetService) GetAttachments(object *models.Object) ([]models.Attachment, error) {
+	objectAttachmentsEndPoint := fmt.Sprintf(models.Endpoints.GetAttachments, object.ID)
 
-	req, err := s.client.NewRequest("GET", objectAttachmentsEndPoint, nil)
+	req, err := assetService.client.NewRequest("GET", objectAttachmentsEndPoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a request: %w", err)
 	}
 
 	attachments := new([]models.Attachment)
 
-	_, err = s.client.Do(req, attachments)
+	_, err = assetService.client.Do(req, attachments)
 	if err != nil {
 		return nil, fmt.Errorf("failed to do a request: %w", err)
 	}
@@ -101,23 +102,23 @@ func (s *assetService) GetAttachments(object *models.Object) ([]models.Attachmen
 
 }
 
-func (s *assetService) DisableUser(user *models.Object) (*models.Object, error) {
-	payload := new(UserAttributesPayload)
-	body := fmt.Sprintf(userAttributePayloadBody, 4220, 100)
+func (assetService *assetService) DisableUser(user *models.Object) (*models.Object, error) {
+	payload := new(models.UserAttributesPayload)
+	body := fmt.Sprintf(config.UserAttributePayloadBody, 4220, 100)
 
 	err := json.Unmarshal([]byte(body), payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 
-	userCategoryEndPoint := fmt.Sprintf(endpoints.GetObjectByISC, user.ID)
+	userCategoryEndPoint := fmt.Sprintf(models.Endpoints.GetObjectByISC, user.ID)
 
-	req, err := s.client.NewRequest("PUT", userCategoryEndPoint, payload)
+	req, err := assetService.client.NewRequest("PUT", userCategoryEndPoint, payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a request: %w", err)
 	}
 
-	_, err = s.client.Do(req, user)
+	_, err = assetService.client.Do(req, user)
 	if err != nil {
 		return user, fmt.Errorf("failed to do a request: %w", err)
 	}
@@ -125,27 +126,27 @@ func (s *assetService) DisableUser(user *models.Object) (*models.Object, error) 
 	return user, nil
 }
 
-func (s *assetService) SetUserCategory(user *models.Object, category string) (*models.Object, error) {
+func (assetService *assetService) SetUserCategory(user *models.Object, category string) (*models.Object, error) {
 	if category != "BYOD" && category != "Corporate laptop" {
 		return nil, errors.New("invalid user category")
 	}
 
-	payload := new(UserAttributesPayload)
-	body := fmt.Sprintf(userAttributePayloadBody, USER_CATEGORY_ATTRIBUTE_ID, "BYOD")
+	payload := new(models.UserAttributesPayload)
+	body := fmt.Sprintf(config.UserAttributePayloadBody, config.USER_CATEGORY_ATTRIBUTE_ID, "BYOD")
 
 	err := json.Unmarshal([]byte(body), payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 
-	userCategoryEndPoint := fmt.Sprintf(endpoints.GetObjectByISC, user.ObjectKey)
+	userCategoryEndPoint := fmt.Sprintf(models.Endpoints.GetObjectByISC, user.ObjectKey)
 
-	req, err := s.client.NewRequest("PUT", userCategoryEndPoint, payload)
+	req, err := assetService.client.NewRequest("PUT", userCategoryEndPoint, payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a request: %w", err)
 	}
 
-	_, err = s.client.Do(req, user)
+	_, err = assetService.client.Do(req, user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to do a request: %w", err)
 	}
@@ -153,15 +154,15 @@ func (s *assetService) SetUserCategory(user *models.Object, category string) (*m
 	return user, nil
 }
 
-func (s *assetService) Search(endpoint string) (*GetObjectRes, error) {
-	req, err := s.client.NewRequest("GET", endpoint, nil)
+func (assetService *assetService) Search(endpoint string) (*models.GetObjectRes, error) {
+	req, err := assetService.client.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a request: %w", err)
 	}
 
-	res := new(GetObjectRes)
+	res := new(models.GetObjectRes)
 
-	_, err = s.client.Do(req, res)
+	_, err = assetService.client.Do(req, res)
 	if err != nil {
 		return nil, fmt.Errorf("failed to do a request: %w", err)
 	}
@@ -169,13 +170,13 @@ func (s *assetService) Search(endpoint string) (*GetObjectRes, error) {
 	return res, nil
 }
 
-func (s *assetService) GetUserByEmail(email string) (*models.Object, error) {
+func (assetService *assetService) GetUserByEmail(email string) (*models.Object, error) {
 	if email == "" {
 		return nil, fmt.Errorf("empty email")
 	}
-	userEndPoint := fmt.Sprintf(endpoints.GetUserByEmail, email)
+	userEndPoint := fmt.Sprintf(models.Endpoints.GetUserByEmail, email)
 
-	res, err := s.Search(userEndPoint)
+	res, err := assetService.Search(userEndPoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search for a user: %w", err)
 	}
@@ -191,13 +192,13 @@ func (s *assetService) GetUserByEmail(email string) (*models.Object, error) {
 	return &res.ObjectEntries[0], nil
 }
 
-func (s *assetService) GetUserLaptops(user *models.Object) (*models.GetObjectRes, error) {
-	email := s.GetUserEmail(user)
+func (assetService *assetService) GetUserLaptops(user *models.Object) (*models.GetObjectRes, error) {
+	email := assetService.GetUserEmail(user)
 	if email == "" {
 		return nil, fmt.Errorf("empty user email")
 	}
 
-	user, err := s.GetUserByEmail(email)
+	user, err := assetService.GetUserByEmail(email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
@@ -208,7 +209,7 @@ func (s *assetService) GetUserLaptops(user *models.Object) (*models.GetObjectRes
 
 	getUsersLaptopsQuery := fmt.Sprintf("object+having+outboundReferences(Key+=+%v)+and+objectType+=+Laptops", user.ObjectKey)
 
-	laptops, err := s.GetAll(getUsersLaptopsQuery)
+	laptops, err := assetService.GetAll(getUsersLaptopsQuery)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get %v's laptops", email)
 	}
@@ -216,9 +217,9 @@ func (s *assetService) GetUserLaptops(user *models.Object) (*models.GetObjectRes
 	return laptops, nil
 }
 
-func (s *assetService) GetUserEmail(user *models.Object) string {
+func (assetService *assetService) GetUserEmail(user *models.Object) string {
 	for _, attr := range user.Attributes {
-		if attr.ObjectTypeAttributeID == USER_EMAIL_ATTRIBUTE_ID {
+		if attr.ObjectTypeAttributeID == config.USER_EMAIL_ATTRIBUTE_ID {
 			return attr.ObjectAttributeValues[0].Value
 		}
 	}
@@ -237,15 +238,15 @@ func (s *assetService) GetLaptopDescription(laptop *models.Object) (*models.Lapt
 		attributeValue := attribute.ObjectAttributeValues[0].Value
 
 		switch attribute.ObjectTypeAttributeID {
-		case NAME_ATTRIBUTE_ID:
+		case config.NAME_ATTRIBUTE_ID:
 			description.Name = attributeValue
-		case ISC_ATTRIBUTE_ID:
+		case config.ISC_ATTRIBUTE_ID:
 			description.ISC = attributeValue
-		case SERIAL_ATTRIBUTE_ID:
+		case config.SERIAL_ATTRIBUTE_ID:
 			description.Serial = attributeValue
-		case COST_ATTRIBUTE_ID:
+		case config.COST_ATTRIBUTE_ID:
 			description.Cost = attributeValue
-		case INVENTORY_ID_ATTRIBUTE_ID:
+		case config.INVENTORY_ID_ATTRIBUTE_ID:
 			description.InventoryID = attributeValue
 		}
 	}

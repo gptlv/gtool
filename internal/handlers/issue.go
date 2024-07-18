@@ -20,8 +20,8 @@ type issueHandler struct {
 	assetService           interfaces.AssetService
 }
 
-func NewIssueHandler(issueService interfaces.IssueService, activeDirectoryService interfaces.ActiveDirectoryService) *issueHandler {
-	return &issueHandler{issueService: issueService, activeDirectoryService: activeDirectoryService}
+func NewIssueHandler(issueService interfaces.IssueService, activeDirectoryService interfaces.ActiveDirectoryService, assetService interfaces.AssetService) *issueHandler {
+	return &issueHandler{issueService: issueService, activeDirectoryService: activeDirectoryService, assetService: assetService}
 }
 
 func (issueHandler *issueHandler) DeactivateInsight() error {
@@ -72,10 +72,8 @@ func (issueHandler *issueHandler) DeactivateInsight() error {
 			continue
 		}
 
-		userEmail, err := issueHandler.issueService.GetUserEmail(parentIssue)
-		if err != nil {
-			return err
-		}
+		summaryFields := strings.Fields(deactivateInsightIssue.Fields.Summary)
+		userEmail := summaryFields[len(summaryFields)-1]
 
 		log.Info(fmt.Sprintf("found user email %v", userEmail))
 

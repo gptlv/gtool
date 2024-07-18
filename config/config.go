@@ -36,31 +36,61 @@ const SERIAL_ATTRIBUTE_ID = 889
 const COST_ATTRIBUTE_ID = 4184
 const INVENTORY_ID_ATTRIBUTE_ID = 932
 
-// type objectService struct {
-// 	client *jira.Client
-// }
+const EMAIL_FIELD_KEY = "customfield_10145"
 
-type UserAttributesPayload struct {
-	Attributes []struct {
-		ObjectTypeAttributeID int `json:"objectTypeAttributeId"`
-		ObjectAttributeValues []struct {
-			Value string `json:"value"`
-		} `json:"objectAttributeValues"`
-	} `json:"attributes"`
-}
+var UserAttributePayloadBody = `{
+	"attributes": [
+	{
+		"objectTypeAttributeId": %v,
+		"objectAttributeValues": [
+			{
+				"value": "%v"
+			}
+		]
+	}
+	]
+}`
 
-type DismissalRecord struct {
-	//comes from csv
-	ID       string
-	ISC      string
-	Flaw     string
-	Decision string
-	//from insight
-	Serial      string
-	Name        string
-	InventoryID string
-	//common
-	Date string
-	Boss string
-	Lead string
+var InternalCommentPayloadBody = `{
+	"body": "%s",
+	"properties": [
+	  {
+		"key": "sd.public.comment",
+		"value": {
+		   "internal": true
+		}
+	  }
+	]
+ }`
+
+var BlockByIssuePayloadBody = `
+{
+	"transition": {
+		"id": "%v"
+	},
+	"update": {
+		"issuelinks": [
+			{
+				"add": {
+					"type": {
+						"name": "Blocks"
+					},
+					"inwardIssue": {
+						"key": "%v"
+					}
+				}
+			}
+		]
+	}
+}`
+
+var BlockUntilTomorrowPayloadBody = `
+{
+    "transition": {
+        "id": "%v"
+    },
+    "fields": {
+        "customfield_10253": "%v"
+    }
 }
+`

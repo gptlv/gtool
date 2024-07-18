@@ -171,7 +171,7 @@ type Attachment struct {
 	URL           string    `json:"url"`
 }
 
-var userAttributePayloadBody = `{
+var UserAttributePayloadBody = `{
 	"attributes": [
 	{
 		"objectTypeAttributeId": %v,
@@ -184,7 +184,16 @@ var userAttributePayloadBody = `{
 	]
 }`
 
-var endpoints = struct {
+type UserAttributesPayload struct {
+	Attributes []struct {
+		ObjectTypeAttributeID int `json:"objectTypeAttributeId"`
+		ObjectAttributeValues []struct {
+			Value string `json:"value"`
+		} `json:"objectAttributeValues"`
+	} `json:"attributes"`
+}
+
+var Endpoints = struct {
 	GetUserLaptopsByKey string
 	GetUserByEmail      string
 	GetObjectByISC      string

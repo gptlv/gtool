@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
+	"main/config"
+	"main/internal/interfaces"
+	"main/internal/models"
 
 	"github.com/andygrunwald/go-jira"
 )
@@ -13,7 +15,7 @@ type issueService struct {
 	client *jira.Client
 }
 
-func NewIssueService(client *jira.Client) *issueService {
+func NewIssueService(client *jira.Client) interfaces.IssueService {
 	return &issueService{client: client}
 }
 
@@ -93,12 +95,12 @@ func (issueService *issueService) GetSubtaskByComponent(issue *jira.Issue, compo
 
 }
 
-func (issueService *issueService) GetUserEmail(issue *jira.Issue) (string, error) {
-	email, _ := issue.Fields.Unknowns.Value(EMAIL_FIELD_KEY)
-	email = strings.TrimSpace(email.(string))
+// func (issueService *issueService) GetUserEmail(issue *jira.Issue) (string, error) {
+// 	email, _ := issue.Fields.Unknowns.Value(config.EMAIL_FIELD_KEY)
+// 	email = strings.TrimSpace(email.(string))
 
-	return fmt.Sprintf("%v", email), nil
-}
+// 	return fmt.Sprintf("%v", email), nil
+// }
 
 func (issueService *issueService) Close(issue *jira.Issue) (*jira.Issue, error) {
 	if issue == nil {
@@ -111,10 +113,11 @@ func (issueService *issueService) Close(issue *jira.Issue) (*jira.Issue, error) 
 	}
 
 	for _, t := range possibleTransitions {
-		_, err = issueService.client.Issue.DoTransition(issue.ID, t.ID)
-
-		if err != nil {
-			return nil, err
+		if t.Name == "In Progress" {
+			_, err = issueService.client.Issue.DoTransition(issue.ID, t.ID)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -155,9 +158,9 @@ func (issueService *issueService) BlockByIssue(currentIssue *jira.Issue, blockin
 
 	for _, t := range possibleTransitions {
 		if t.Name == "Block" {
-			body := fmt.Sprintf(blockByIssuePayloadBody, t.ID, blockingIssue.Key)
+			body := fmt.Sprintf(config.BlockByIssuePayloadBody, t.ID, blockingIssue.Key)
 
-			payload := new(BlockByIssuePayload)
+			payload := new(models.BlockByIssuePayload)
 
 			err := json.Unmarshal([]byte(body), payload)
 			if err != nil {
@@ -206,8 +209,8 @@ func (issueService *issueService) PrintIssue(issue *jira.Issue) {
 }
 
 func (issueService *issueService) WriteInternalComment(issue *jira.Issue, commentText string) (*jira.Comment, error) {
-	body := fmt.Sprintf(internalCommentPayloadBody, commentText)
-	payload := new(InternalCommentPayload)
+	body := fmt.Sprintf(config.InternalCommentPayloadBody, commentText)
+	payload := new(models.InternalCommentPayload)
 
 	err := json.Unmarshal([]byte(body), payload)
 	if err != nil {
@@ -249,9 +252,9 @@ func (issueService *issueService) BlockUntilTomorrow(issue *jira.Issue) (*jira.I
 		if t.Name == "Block" {
 			// body := fmt.Sprintf(blockByIssuePayloadBody, t.ID, blockingIssue.Key)
 
-			payload := new(BlockUntilTomorrowPayload)
+			payload := new(models.BlockUntilTomorrowPayload)
 
-			err := json.Unmarshal([]byte(BlockUntilTomorrowPayloadBody), payload)
+			err := json.Unmarshal([]byte(config.BlockUntilTomorrowPayloadBody), payload)
 			if err != nil {
 				return nil, err
 			}

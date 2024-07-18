@@ -7,7 +7,7 @@ type IssueService interface {
 	GetParent(issue *jira.Issue) (*jira.Issue, error)
 	GetByID(ID string) (*jira.Issue, error)
 	GetSubtaskByComponent(issue *jira.Issue, componentName string) (*jira.Subtasks, error)
-	GetUserEmail(issue *jira.Issue) (string, error)
+	// GetUserEmail(issue *jira.Issue) (string, error)
 	Update(issue *jira.Issue, data map[string]interface{}) (*jira.Issue, error)
 	Close(issue *jira.Issue) (*jira.Issue, error)
 	BlockByIssue(currentIssue *jira.Issue, blockingIssue *jira.Issue) (*jira.Issue, error)
@@ -17,12 +17,4 @@ type IssueService interface {
 	Summarize(issue *jira.Issue) string
 	BlockUntilTomorrow(issue *jira.Issue) (*jira.Issue, error)
 	GetUnresolvedSubtask(issue *jira.Issue) (*jira.Issue, error)
-}
-
-type IssueHandler interface {
-	DeactivateInsight() error
-	GrantPermission() error
-	UpdateBlockTraineeIssue() error
-	ShowIssuesWithEmptyComponent() error
-	BlockDismissedUserInActiveDirectory() error
 }

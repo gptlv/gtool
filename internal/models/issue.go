@@ -1,51 +1,5 @@
 package models
 
-const EMAIL_FIELD_KEY = "customfield_10145"
-
-var internalCommentPayloadBody = `{
-	"body": "%s",
-	"properties": [
-	  {
-		"key": "sd.public.comment",
-		"value": {
-		   "internal": true
-		}
-	  }
-	]
- }`
-
-var blockByIssuePayloadBody = `
-{
-	"transition": {
-		"id": "%v"
-	},
-	"update": {
-		"issuelinks": [
-			{
-				"add": {
-					"type": {
-						"name": "Blocks"
-					},
-					"inwardIssue": {
-						"key": "%v"
-					}
-				}
-			}
-		]
-	}
-}`
-
-var BlockUntilTomorrowPayloadBody = `
-{
-    "transition": {
-        "id": "%v"
-    },
-    "fields": {
-        "customfield_10253": "%v"
-    }
-}
-`
-
 type BlockByIssuePayload struct {
 	Transition struct {
 		ID string `json:"id"`

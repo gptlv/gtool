@@ -41,12 +41,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// is := issue.NewIssueService(client)
 	issueService := services.NewIssueService(client)
 	assetService := services.NewAssetService(client)
 	activeDirectoryService := services.NewActiveDirectoryService(conn)
 
-	issueHandler := handlers.NewIssueHandler(issueService, activeDirectoryService)
+	issueHandler := handlers.NewIssueHandler(issueService, activeDirectoryService, assetService)
 	assetHandler := handlers.NewAssetHandler(assetService)
 
 	fmt.Print("\033[H\033[2J")
@@ -70,7 +69,7 @@ func main() {
 		fmt.Scanln(&input)
 
 		n, err = strconv.Atoi(input)
-		if err == nil && (1 <= n && n <= 10) {
+		if err == nil && (1 <= n && n <= 12) {
 			break
 		}
 		fmt.Println("Invalid choice")
