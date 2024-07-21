@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"main/internal/interfaces"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -31,10 +32,6 @@ func (issueHandler *issueHandler) DeactivateInsight() error {
 	deactivateInsightIssues, err := issueHandler.issueService.GetAll(jql)
 	if err != nil {
 		return err
-	}
-
-	if len(deactivateInsightIssues) == 0 {
-		return errors.New("no deactivation issues")
 	}
 
 	for _, deactivateInsightIssue := range deactivateInsightIssues {
@@ -190,7 +187,7 @@ func (issueHandler *issueHandler) AddUserToGroupFromJiraIssue() error {
 
 	log.Info(fmt.Sprintf("Found AD group: %v", adGroupCN))
 
-	summary := strings.Split(strings.TrimSpace(issue.Fields.Summary), " ") // won't work
+	summary := strings.Fields(issue.Fields.Summary) // won't work
 	email := summary[len(summary)-1]
 
 	log.Info(fmt.Sprintf("Getting AD user by email: %v", email))
@@ -303,14 +300,14 @@ func (issueHandler *issueHandler) ShowIssuesWithEmptyComponent() error {
 func (issueHandler *issueHandler) AssignAllDeactivateInsightIssuesToMe() error {
 	jql := `project = SD and assignee = empty and (summary ~ "Деактивировать в Insight" or summary ~ "Блокировка УЗ в AD") and component in (Insight, AD) and resolution = unresolved and "Postpone until" < endOfMonth()`
 
-	insightIssues, err := issueHandler.issueService.GetAll(jql)
+	foundIssues, err := issueHandler.issueService.GetAll(jql)
 	if err != nil {
 		return fmt.Errorf("failed to get all insight issues to assign: %w", err)
 	}
 
-	for _, insightIssue := range insightIssues {
-		_, err = issueHandler.issueService.AssignIssueToMe(&insightIssue)
-		log.Info(fmt.Sprintf("assigning [%v] %v to self\n", insightIssue.Key, insightIssue.Fields.Summary))
+	for _, foundIssue := range foundIssues {
+		_, err = issueHandler.issueService.AssignIssueToMe(&foundIssue)
+		log.Info(fmt.Sprintf("assigning %v to self", issueHandler.issueService.Summarize(&foundIssue)))
 		if err != nil {
 			return fmt.Errorf("failed to assign issue to me: %w", err)
 		}
@@ -349,7 +346,7 @@ func (issueHandler *issueHandler) AddUserToGroupFromCLI() error {
 	}
 
 	for _, groupCN := range groupCNs {
-		log.Info("getting AD group by cn: %v", groupCN)
+		log.Info(fmt.Sprintf("getting AD group by cn: %v", groupCN))
 		group, err := issueHandler.activeDirectoryService.GetByCN(groupCN)
 		if err != nil {
 			return fmt.Errorf("failed to get group by cn: %w", err)
@@ -493,6 +490,85 @@ func (issueHandler *issueHandler) CheckUserStatus() error {
 			}
 		}
 		time.Sleep(5 * time.Second)
+	}
+	return nil
+}
+
+func (issueHandler *issueHandler) ProcessReturnCCEquipmentIssue() error {
+	jql := `project = "IT Support" and assignee = currentUser() and status = Analysis  and component = "Возврат оборудования" and summary ~ "Проверить наличие техники и организовать ее забор для" and Asset = empty`
+
+	jobTitleCC := "оператор"
+
+	returnEquipmentIssues, err := issueHandler.issueService.GetAll(jql)
+	if err != nil {
+		return fmt.Errorf("failed to get issues: %w", err)
+	}
+
+	for _, returnEquipmentIssue := range returnEquipmentIssues {
+		log := log.NewWithOptions(os.Stderr, log.Options{Prefix: returnEquipmentIssue.Key})
+		log.Info(fmt.Sprintf("starting processing the issue %v", issueHandler.issueService.Summarize(&returnEquipmentIssue)))
+
+		summaryFields := strings.Fields(returnEquipmentIssue.Fields.Summary)
+		email := summaryFields[len(summaryFields)-1]
+
+		log.Info(fmt.Sprintf("getting asset user by email %v", email))
+		user, err := issueHandler.assetService.GetUserByEmail(email)
+		if err != nil {
+			return fmt.Errorf("failed to get user %v by email: %w", email, err)
+		}
+
+		log.Info(fmt.Sprintf("getting %v's laptops", email))
+		getUserLaptopsRes, err := issueHandler.assetService.GetUserLaptops(user)
+		if err != nil {
+			return fmt.Errorf("failed to get user's %v laptops: %w", email, err)
+		}
+
+		laptops := getUserLaptopsRes.ObjectEntries
+		log.Info(fmt.Sprintf("user %v has %v attached laptops", email, len(laptops)))
+		if len(laptops) > 0 {
+			log.Info("user still has attached laptops, skipping the issue...\n")
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		parentIssueID := returnEquipmentIssue.Fields.Parent.ID
+		parentIssue, err := issueHandler.issueService.GetByID(parentIssueID)
+		if err != nil {
+			return fmt.Errorf("failed to get parent issue %v by key: %w", parentIssueID, err)
+		}
+		log.Info(fmt.Sprintf("found parent issue: %v", issueHandler.issueService.Summarize(parentIssue)))
+
+		log.Info(fmt.Sprintf("getting %v's job title", email))
+		jobTitle, err := issueHandler.issueService.GetCustomFieldValue(parentIssue, "customfield_10197")
+		if err != nil {
+			return fmt.Errorf("failed to get custom field value for %v: %w", parentIssue.Key, err)
+		}
+		log.Info(fmt.Sprintf("%v's job title is \"%v\"", email, jobTitle))
+
+		if strings.Trim(strings.ToLower(jobTitle), " ") != jobTitleCC {
+			log.Info(fmt.Sprintf("job title \"%v\" doesn't equal to \"%v\"", jobTitle, jobTitleCC))
+			log.Info("skipping the issue...\n")
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		log.Info("declining the issue")
+		_, err = issueHandler.issueService.Decline(&returnEquipmentIssue)
+		if err != nil {
+			return fmt.Errorf("failed to decline issue %v: %w", returnEquipmentIssue.Key, err)
+		}
+
+		commentText := "Оборудование не отправлялось"
+
+		log.Info(fmt.Sprintf("writing internal comment \"%v\"", commentText))
+		_, err = issueHandler.issueService.WriteInternalComment(&returnEquipmentIssue, commentText)
+		if err != nil {
+			return fmt.Errorf("failed to write comment to %v: %w", returnEquipmentIssue.Key, err)
+		}
+
+		log.Info("finished processing the issue\n")
+		time.Sleep(5 * time.Second)
+
 	}
 	return nil
 }

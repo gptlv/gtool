@@ -7,6 +7,7 @@ import (
 	"main/config"
 	"main/internal/interfaces"
 	"main/internal/models"
+	"time"
 
 	"github.com/andygrunwald/go-jira"
 )
@@ -20,10 +21,9 @@ func NewIssueService(client *jira.Client) interfaces.IssueService {
 }
 
 func (issueService *issueService) GetAll(jql string) ([]jira.Issue, error) {
-	fmt.Printf("Usecase: Running a JQL query '%s'\n", jql)
 	issues, _, err := issueService.client.Issue.Search(jql, &jira.SearchOptions{MaxResults: 100}) //SearchOptions <- nil
 	if err != nil {
-		return []jira.Issue{}, fmt.Errorf("falied to get all issues: %w", err)
+		return []jira.Issue{}, fmt.Errorf("failed to get all issues: %w", err)
 	}
 
 	return issues, nil
@@ -95,13 +95,6 @@ func (issueService *issueService) GetSubtaskByComponent(issue *jira.Issue, compo
 
 }
 
-// func (issueService *issueService) GetUserEmail(issue *jira.Issue) (string, error) {
-// 	email, _ := issue.Fields.Unknowns.Value(config.EMAIL_FIELD_KEY)
-// 	email = strings.TrimSpace(email.(string))
-
-// 	return fmt.Sprintf("%v", email), nil
-// }
-
 func (issueService *issueService) Close(issue *jira.Issue) (*jira.Issue, error) {
 	if issue == nil {
 		return nil, errors.New("empty issue")
@@ -156,9 +149,9 @@ func (issueService *issueService) BlockByIssue(currentIssue *jira.Issue, blockin
 		return nil, err
 	}
 
-	for _, t := range possibleTransitions {
-		if t.Name == "Block" {
-			body := fmt.Sprintf(config.BlockByIssuePayloadBody, t.ID, blockingIssue.Key)
+	for _, transition := range possibleTransitions {
+		if transition.Name == "Block" {
+			body := fmt.Sprintf(config.BlockByIssuePayloadBody, transition.ID, blockingIssue.Key)
 
 			payload := new(models.BlockByIssuePayload)
 
@@ -248,16 +241,14 @@ func (issueService *issueService) BlockUntilTomorrow(issue *jira.Issue) (*jira.I
 		return nil, err
 	}
 
-	for _, t := range possibleTransitions {
-		if t.Name == "Block" {
-			// body := fmt.Sprintf(blockByIssuePayloadBody, t.ID, blockingIssue.Key)
+	for _, transition := range possibleTransitions {
+		if transition.Name == "Block" {
+			tomorrow := time.Now().AddDate(0, 0, 1)
+			formattedTomorrow := tomorrow.Format("2006-01-02")
 
 			payload := new(models.BlockUntilTomorrowPayload)
-
-			err := json.Unmarshal([]byte(config.BlockUntilTomorrowPayloadBody), payload)
-			if err != nil {
-				return nil, err
-			}
+			payload.Transition.ID = 31
+			payload.Fields.Customfield10253 = formattedTomorrow
 
 			_, err = issueService.client.Issue.DoTransitionWithPayload(issue.ID, &payload)
 			if err != nil {
@@ -291,4 +282,50 @@ func (issueService *issueService) GetUnresolvedSubtask(issue *jira.Issue) (*jira
 	}
 
 	return nil, nil
+}
+
+func (issueService *issueService) GetCustomFieldValue(issue *jira.Issue, fieldID string) (string, error) {
+	if issue == nil {
+		return "", errors.New("empty issue")
+	}
+
+	value, exists := issue.Fields.Unknowns[fieldID].(string)
+	if exists {
+		return value, nil
+	}
+
+	return "", nil
+
+}
+
+func (issueService *issueService) Decline(issue *jira.Issue) (*jira.Issue, error) {
+	if issue == nil {
+		return nil, errors.New("empty issue")
+	}
+
+	possibleTransitions, _, err := issueService.client.Issue.GetTransitions(issue.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transitions: %w", err)
+	}
+
+	for _, transition := range possibleTransitions {
+		if transition.Name == "Отклонено" {
+			payload := new(models.DeclinePayload)
+			payload.Transition.ID = transition.ID
+			payload.Fields.Resolution.Name = "Won't Do"
+
+			_, err := issueService.client.Issue.DoTransitionWithPayload(issue.ID, &payload)
+			if err != nil {
+				return nil, fmt.Errorf("failed to do transition %v: %w", transition.Name, err)
+			}
+		}
+	}
+
+	updatedIssue, err := issueService.GetByID(issue.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get issue by ID: %w", err)
+	}
+
+	return updatedIssue, nil
+
 }

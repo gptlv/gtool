@@ -20,7 +20,7 @@ type BlockByIssuePayload struct {
 
 type BlockUntilTomorrowPayload struct {
 	Transition struct {
-		ID string `json:"id"`
+		ID int `json:"id"`
 	} `json:"transition"`
 	Fields struct {
 		Customfield10253 string `json:"customfield_10253"`
@@ -40,5 +40,16 @@ type InternalCommentPayload struct {
 type UpdateSummary struct {
 	Fields struct {
 		Summary string `json:"summary"`
+	} `json:"fields"`
+}
+
+type DeclinePayload struct {
+	Transition struct {
+		ID string `json:"id"`
+	} `json:"transition"`
+	Fields struct {
+		Resolution struct {
+			Name string `json:"name"`
+		} `json:"resolution"`
 	} `json:"fields"`
 }

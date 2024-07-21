@@ -33,6 +33,10 @@ func (s *activeDirectoryService) GetByCN(cn string) (*ldap.Entry, error) {
 		log.Fatal("failed to query LDAP: %w", err)
 	}
 
+	if len(groupRes.Entries) == 0 {
+		return nil, errors.New("no such entry")
+	}
+
 	group := groupRes.Entries[0]
 
 	return group, nil

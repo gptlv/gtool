@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"main/internal/handlers"
 	"main/internal/services"
 	"os"
 	"strconv"
 
 	"github.com/andygrunwald/go-jira"
+	"github.com/charmbracelet/log"
 	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/joho/godotenv"
 )
@@ -61,6 +61,7 @@ func main() {
 	fmt.Println("10) Move users to new OU")
 	fmt.Println("11) Add user to ad group from cli")
 	fmt.Println("12) Process dismissal or hiring issue")
+	fmt.Println("13) Process return cc equipment issue")
 
 	var n int
 	for {
@@ -69,7 +70,7 @@ func main() {
 		fmt.Scanln(&input)
 
 		n, err = strconv.Atoi(input)
-		if err == nil && (1 <= n && n <= 12) {
+		if err == nil && (1 <= n && n <= 13) {
 			break
 		}
 		fmt.Println("Invalid choice")
@@ -159,6 +160,13 @@ func main() {
 
 	if n == 12 {
 		err := issueHandler.ProcessDismissalOrHiringIssue()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if n == 13 {
+		err := issueHandler.ProcessReturnCCEquipmentIssue()
 		if err != nil {
 			log.Fatal(err)
 		}
