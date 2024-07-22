@@ -284,17 +284,17 @@ func (issueService *issueService) GetUnresolvedSubtask(issue *jira.Issue) (*jira
 	return nil, nil
 }
 
-func (issueService *issueService) GetCustomFieldValue(issue *jira.Issue, fieldID string) (string, error) {
+func (issueService *issueService) GetCustomFieldValue(issue *jira.Issue, fieldID string) (interface{}, error) {
 	if issue == nil {
-		return "", errors.New("empty issue")
+		return nil, errors.New("empty issue")
 	}
 
-	value, exists := issue.Fields.Unknowns[fieldID].(string)
+	value, exists := issue.Fields.Unknowns[fieldID]
 	if exists {
 		return value, nil
 	}
 
-	return "", nil
+	return nil, fmt.Errorf("%v doesn't exist", fieldID)
 
 }
 

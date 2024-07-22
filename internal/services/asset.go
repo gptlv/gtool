@@ -7,6 +7,7 @@ import (
 	"main/config"
 	"main/internal/interfaces"
 	"main/internal/models"
+	"regexp"
 
 	"github.com/andygrunwald/go-jira"
 )
@@ -227,7 +228,7 @@ func (assetService *assetService) GetUserEmail(user *models.Object) string {
 	return ""
 }
 
-func (s *assetService) GetLaptopDescription(laptop *models.Object) (*models.LaptopDescription, error) {
+func (assetService *assetService) GetLaptopDescription(laptop *models.Object) (*models.LaptopDescription, error) {
 	if laptop == nil {
 		return nil, fmt.Errorf("empty laptop")
 	}
@@ -252,4 +253,15 @@ func (s *assetService) GetLaptopDescription(laptop *models.Object) (*models.Lapt
 	}
 
 	return description, nil
+}
+
+func (assetService *assetService) ExtractInformationResourceIdentifier(value string) (string, error) {
+	re := regexp.MustCompile(`\((IR-\d+)\)`)
+
+	matches := re.FindStringSubmatch(value)
+	if len(matches) < 2 {
+		return "", fmt.Errorf("identifier not found in input string")
+	}
+
+	return matches[1], nil
 }

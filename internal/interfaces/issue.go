@@ -16,6 +16,6 @@ type IssueService interface {
 	Summarize(issue *jira.Issue) string
 	BlockUntilTomorrow(issue *jira.Issue) (*jira.Issue, error)
 	GetUnresolvedSubtask(issue *jira.Issue) (*jira.Issue, error)
-	GetCustomFieldValue(issue *jira.Issue, fieldID string) (string, error)
+	GetCustomFieldValue(issue *jira.Issue, fieldID string) (interface{}, error)
 	Decline(issue *jira.Issue) (*jira.Issue, error)
 }

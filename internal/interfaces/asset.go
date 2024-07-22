@@ -15,8 +15,5 @@ type AssetService interface {
 	GetUserLaptops(user *models.Object) (*models.GetObjectRes, error)
 	GetUserByEmail(email string) (*models.Object, error)
 	GetLaptopDescription(laptop *models.Object) (*models.LaptopDescription, error)
-}
-
-type AssetHandler interface {
-	PrintLaptopDescription() error
+	ExtractInformationResourceIdentifier(value string) (string, error)
 }

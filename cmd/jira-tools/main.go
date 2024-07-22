@@ -9,7 +9,7 @@ import (
 
 	"github.com/andygrunwald/go-jira"
 	"github.com/charmbracelet/log"
-	ldap "github.com/go-ldap/ldap/v3"
+	"github.com/go-ldap/ldap/v3"
 	"github.com/joho/godotenv"
 )
 
@@ -49,16 +49,16 @@ func main() {
 	assetHandler := handlers.NewAssetHandler(assetService)
 
 	fmt.Print("\033[H\033[2J")
-	fmt.Println("1) Deactivate insight")
-	fmt.Println("2) Generate dismissal documents")
+	fmt.Println("1) Process deactivate insight account issue")
+	// fmt.Println("2) Generate dismissal documents")
 	fmt.Println("3) Get laptop description")
 	fmt.Println("4) Assign all deactivate insight issues to me")
 	fmt.Println("5) Show issues with empty component")
 	fmt.Println("6) Update block trainee cc issue")
-	fmt.Println("7) Remove VPN groups from users")
-	fmt.Println("8) Add user to group from jira issue")
-	fmt.Println("9) Check if user is disabled")
-	fmt.Println("10) Move users to new OU")
+	// fmt.Println("7) Remove VPN groups from users")
+	fmt.Println("8) Process grant access issue")
+	fmt.Println("9) Process disable active directory account issue")
+	// fmt.Println("10) Move users to new OU")
 	fmt.Println("11) Add user to ad group from cli")
 	fmt.Println("12) Process dismissal or hiring issue")
 	fmt.Println("13) Process return cc equipment issue")
@@ -77,7 +77,7 @@ func main() {
 	}
 
 	if n == 1 {
-		err := issueHandler.DeactivateInsight()
+		err := issueHandler.ProcessDeactivateInsightAccountIssue()
 		if err != nil {
 			panic(err)
 		}
@@ -131,14 +131,14 @@ func main() {
 	// }
 
 	if n == 8 {
-		err := issueHandler.AddUserToGroupFromJiraIssue()
+		err := issueHandler.ProcessGrantAccessIssue()
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	if n == 9 {
-		err := issueHandler.CheckUserStatus()
+		err := issueHandler.ProcessDisableActiveDirectoryAccountIssue()
 		if err != nil {
 			log.Fatal(err)
 		}

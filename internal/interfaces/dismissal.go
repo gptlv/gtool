@@ -16,7 +16,3 @@ type DismissalService interface {
 	CreateFile(dirPath string, fileName string, extension string) (*os.File, error)
 	ReadCsvFile(filePath string) ([][]string, error)
 }
-
-type DismissalUsecase interface {
-	GenerateDismissalDocuments()
-}
