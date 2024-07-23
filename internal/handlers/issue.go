@@ -537,6 +537,10 @@ func (issueHandler *issueHandler) ProcessReturnCCEquipmentIssue() error {
 		return fmt.Errorf("failed to get issues: %w", err)
 	}
 
+	if len(returnEquipmentIssues) == 0 {
+		log.Info("no issues found")
+	}
+
 	for _, returnEquipmentIssue := range returnEquipmentIssues {
 		log.SetPrefix(returnEquipmentIssue.Key)
 		log.Info(fmt.Sprintf("start processing the issue %v", issueHandler.issueService.Summarize(&returnEquipmentIssue)))

@@ -1,6 +1,6 @@
-package models
+package domain
 
-type DismissalRecord struct {
+type WriteOffRecord struct {
 	//comes from csv
 	ID       string
 	ISC      string

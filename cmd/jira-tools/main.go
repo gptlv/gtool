@@ -44,13 +44,15 @@ func main() {
 	issueService := services.NewIssueService(client)
 	assetService := services.NewAssetService(client)
 	activeDirectoryService := services.NewActiveDirectoryService(conn)
+	writeOffService := services.NewWriteOffService()
 
 	issueHandler := handlers.NewIssueHandler(issueService, activeDirectoryService, assetService)
 	assetHandler := handlers.NewAssetHandler(assetService)
+	writeOffHandler := handlers.NewWriteOffHandler(writeOffService, assetService)
 
 	fmt.Print("\033[H\033[2J")
 	fmt.Println("1) Process deactivate insight account issue")
-	// fmt.Println("2) Generate dismissal documents")
+	fmt.Println("2) Generate write-off records")
 	fmt.Println("3) Get laptop description")
 	fmt.Println("4) Assign all deactivate insight issues to me")
 	fmt.Println("5) Show issues with empty component")
@@ -79,21 +81,16 @@ func main() {
 	if n == 1 {
 		err := issueHandler.ProcessDeactivateInsightAccountIssue()
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	}
 
-	// if n == 2 {
-	// 	if err := pdf.Init(); err != nil {
-	// 		log.Fatal(fmt.Errorf("failed to initialize pdf: %w", err))
-	// 	}
-	// 	defer pdf.Destroy()
-
-	// 	err := th.GenerateDismissalRecords()
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// }
+	if n == 2 {
+		err := writeOffHandler.GenerateWriteOffRecords()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	if n == 3 {
 		err := assetHandler.PrintLaptopDescription()

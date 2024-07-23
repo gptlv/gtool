@@ -1,4 +1,4 @@
-package entities
+package domain
 
 type Issue struct {
 	ID  string

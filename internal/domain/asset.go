@@ -1,4 +1,4 @@
-package entities
+package domain
 
 type Asset struct {
 	ID   int
