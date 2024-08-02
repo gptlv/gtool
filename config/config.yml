@@ -1,0 +1,7 @@
+app:
+  name: 'jira-tools'
+  version: '1.0.0'
+
+write-off:
+  boss: 'test'
+  lead: 'test'

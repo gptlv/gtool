@@ -22,7 +22,7 @@ type issueHandler struct {
 	assetService           interfaces.AssetService
 }
 
-func NewIssueHandler(issueService interfaces.IssueService, activeDirectoryService interfaces.ActiveDirectoryService, assetService interfaces.AssetService) *issueHandler {
+func NewIssueHandler(issueService interfaces.IssueService, activeDirectoryService interfaces.ActiveDirectoryService, assetService interfaces.AssetService) interfaces.IssueHandler {
 	return &issueHandler{issueService: issueService, activeDirectoryService: activeDirectoryService, assetService: assetService}
 }
 
@@ -311,7 +311,7 @@ func (issueHandler *issueHandler) ShowIssuesWithEmptyComponent() error {
 }
 
 func (issueHandler *issueHandler) AssignAllDeactivateInsightIssuesToMe() error {
-	jql := `project = SD and assignee = empty and (summary ~ "Деактивировать в Insight" or summary ~ "Блокировка УЗ в AD") and component in (Insight, AD) and resolution = unresolved and "Postpone until" < endOfMonth()`
+	jql := `project = SD and assignee = empty and (summary ~ "Деактивировать в Insight" or summary ~ "Блокировка УЗ в AD") and component in (Insight, AD) and resolution = unresolved and "Postpone until" < endOfWeek()`
 
 	foundIssues, err := issueHandler.issueService.GetAll(jql)
 	if err != nil {

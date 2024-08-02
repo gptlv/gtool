@@ -2,6 +2,18 @@ package interfaces
 
 import "github.com/andygrunwald/go-jira"
 
+type IssueHandler interface {
+	ProcessDeactivateInsightAccountIssue() error
+	AssignAllDeactivateInsightIssuesToMe() error
+	ProcessGrantAccessIssue() error
+	UpdateBlockTraineeIssue() error
+	ShowIssuesWithEmptyComponent() error
+	AddUserToGroupFromCLI() error
+	ProcessDismissalOrHiringIssue() error
+	ProcessDisableActiveDirectoryAccountIssue() error
+	ProcessReturnCCEquipmentIssue() error
+}
+
 type IssueService interface {
 	GetAll(jql string) ([]jira.Issue, error)
 	GetParent(issue *jira.Issue) (*jira.Issue, error)

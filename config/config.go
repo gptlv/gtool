@@ -6,20 +6,46 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
-type Config struct {
-}
+type (
+	Config struct {
+		Jira            `yaml:"jira"`
+		ActiveDirectory `yaml:"active_directory"`
+		LDAP            `yaml:"ldap"`
+		WriteOff        `yaml:"write_off"`
+	}
+
+	Jira struct {
+		Token string `env-required:"true" env:"JIRA_TOKEN"`
+		URL   string `env-required:"true" env:"JIRA_URL"`
+	}
+
+	ActiveDirectory struct {
+		AdminDN       string `env-required:"true" env:"ADMIN_DN"`
+		AdminPassword string `env-required:"true" env:"ADMIN_PASS"`
+	}
+
+	LDAP struct {
+		URL    string `env-required:"true" env:"LDAP_URL"`
+		BaseDN string `env-required:"true" env:"LDAP_BASE_DN"`
+	}
+
+	WriteOff struct {
+		Boss string `env-required:"true" yaml:"boss" env:"BOSS"`
+		Lead string `env-required:"true" yaml:"lead" env:"LEAD"`
+	}
+)
 
 func NewConfig() (*Config, error) {
 	cfg := &Config{}
 
-	err := cleanenv.ReadConfig("./config/config.yml", cfg)
-	if err != nil {
-		return nil, fmt.Errorf("config error: %w", err)
-	}
-
-	err = cleanenv.ReadEnv(cfg)
+	err := cleanenv.ReadEnv(cfg)
 	if err != nil {
 		return nil, err
+	}
+
+	err = cleanenv.ReadConfig("./config/config.yml", cfg)
+	if err != nil {
+		return nil, fmt.Errorf("config error: %w", err)
 	}
 
 	return cfg, nil
