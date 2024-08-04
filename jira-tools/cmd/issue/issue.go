@@ -1,25 +1,34 @@
 package issue
 
 import (
-	"main/internal/handlers"
+	"fmt"
 	"main/internal/interfaces"
-	"main/internal/services"
+	"main/jira-tools/cmd"
 
-	"github.com/andygrunwald/go-jira"
-	"github.com/go-ldap/ldap/v3"
 	"github.com/spf13/cobra"
 )
 
-func getIssueHandler(cmd *cobra.Command) interfaces.IssueHandler {
-	ctx := cmd.Context()
-	client := ctx.Value("client").(*jira.Client)
-	conn := ctx.Value("conn").(*ldap.Conn)
+var issueHandler interfaces.IssueHandler
 
-	issueService := services.NewIssueService(client)
-	assetService := services.NewAssetService(client)
-	activeDirectoryService := services.NewActiveDirectoryService(conn)
+func init() {
+	injectIssueHandler()
 
-	issueHandler := handlers.NewIssueHandler(issueService, activeDirectoryService, assetService)
+	cmd.RootCmd.AddCommand(issueCmd)
+	issueCmd.AddCommand(assignAllCmd)
+	// issueCmd.AddCommand(deactivateInsightCmd)
+	// issueCmd.AddCommand(grantPermissionCmd)
+	// issueCmd.AddCommand(updateBlockTraineeCmd)
+	// issueCmd.AddCommand(showEmptyComponentCmd)
+	// issueCmd.AddCommand(addUserToGroupCmd)
+	// issueCmd.AddCommand(dismissalOrHiringCmd)
+	// issueCmd.AddCommand(disableActiveDirectoryCmd)
+	// issueCmd.AddCommand(returnCCEquipmentCmd)
+}
 
-	return issueHandler
+var issueCmd = &cobra.Command{
+	Use:   "issue",
+	Short: "Manage issues",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Use 'myapp issue --help' for more information on managing issues")
+	},
 }
