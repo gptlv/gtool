@@ -36,10 +36,10 @@ func main() {
 	}
 	defer conn.Close()
 
-	// err = conn.Bind(os.Getenv("ADMIN_DN"), os.Getenv("ADMIN_PASS"))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	err = conn.Bind(os.Getenv("ADMIN_DN"), os.Getenv("ADMIN_PASS"))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	issueService := services.NewIssueService(client)
 	assetService := services.NewAssetService(client)

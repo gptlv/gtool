@@ -1,8 +1,6 @@
 package main
 
-import (
-	"main/jira-tools/cmd"
-)
+import "main/jira-tools/cmd"
 
 func main() {
 	cmd.Execute()

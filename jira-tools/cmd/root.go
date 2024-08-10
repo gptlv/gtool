@@ -2,24 +2,19 @@ package cmd
 
 import (
 	"fmt"
+	"main/jira-tools/cmd/issue"
+	"main/jira-tools/cmd/version"
 	"os"
 
-	"github.com/andygrunwald/go-jira"
-	"github.com/go-ldap/ldap/v3"
-	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
-var Client *jira.Client
-var Conn *ldap.Conn
-
 func init() {
-	if envErr := godotenv.Load(".env"); envErr != nil {
-		fmt.Println(".env file missing")
-	}
+	rootCmd.AddCommand(issue.IssueCmd)
+	rootCmd.AddCommand(version.VersionCmd)
 }
 
-var RootCmd = &cobra.Command{
+var rootCmd = &cobra.Command{
 	Use:   "jira-tools",
 	Short: "CLI application for mundane tasks in jira",
 	Long:  "A CLI application built with Cobra for various operations",
@@ -29,12 +24,9 @@ var RootCmd = &cobra.Command{
 }
 
 func Execute() {
-	injectConnections()
-
-	err := RootCmd.Execute()
+	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
 }

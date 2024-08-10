@@ -3,15 +3,15 @@ package interfaces
 import "github.com/andygrunwald/go-jira"
 
 type IssueHandler interface {
-	ProcessDeactivateInsightAccountIssue() error
-	AssignAllDeactivateInsightIssuesToMe() error
+	ProcessDeactivateInsightAccountIssues() error
+	AssignAutomatableIssuesToCurrentUser() error
 	ProcessGrantAccessIssue() error
 	UpdateBlockTraineeIssue() error
 	ShowIssuesWithEmptyComponent() error
 	AddUserToGroupFromCLI() error
-	ProcessDismissalOrHiringIssue() error
-	ProcessDisableActiveDirectoryAccountIssue() error
-	ProcessReturnCCEquipmentIssue() error
+	ProcessStaffIssues() error
+	ProcessDisableActiveDirectoryAccountIssues() error
+	ProcessReturnCCEquipmentIssues() error
 }
 
 type IssueService interface {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ilyakaznacheev/cleanenv"
+	"github.com/joho/godotenv"
 )
 
 type (
@@ -38,12 +39,11 @@ type (
 func NewConfig() (*Config, error) {
 	cfg := &Config{}
 
-	err := cleanenv.ReadEnv(cfg)
-	if err != nil {
-		return nil, err
+	if envErr := godotenv.Load(".env"); envErr != nil {
+		fmt.Println(".env file missing")
 	}
 
-	err = cleanenv.ReadConfig("./config/config.yml", cfg)
+	err := cleanenv.ReadConfig("./config/config.yml", cfg)
 	if err != nil {
 		return nil, fmt.Errorf("config error: %w", err)
 	}

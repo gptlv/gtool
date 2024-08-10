@@ -26,7 +26,7 @@ func NewIssueHandler(issueService interfaces.IssueService, activeDirectoryServic
 	return &issueHandler{issueService: issueService, activeDirectoryService: activeDirectoryService, assetService: assetService}
 }
 
-func (issueHandler *issueHandler) ProcessDeactivateInsightAccountIssue() error {
+func (issueHandler *issueHandler) ProcessDeactivateInsightAccountIssues() error {
 	jql := `project = "IT Support" AND assignee = currentUser() AND status = "Open" AND summary ~ "Деактивировать в Insight"`
 
 	deactivateInsightIssues, err := issueHandler.issueService.GetAll(jql)
@@ -310,8 +310,8 @@ func (issueHandler *issueHandler) ShowIssuesWithEmptyComponent() error {
 
 }
 
-func (issueHandler *issueHandler) AssignAllDeactivateInsightIssuesToMe() error {
-	jql := `project = SD and assignee = empty and (summary ~ "Деактивировать в Insight" or summary ~ "Блокировка УЗ в AD") and component in (Insight, AD) and resolution = unresolved and "Postpone until" < endOfWeek()`
+func (issueHandler *issueHandler) AssignAutomatableIssuesToCurrentUser() error {
+	jql := `(project = SD and assignee = empty and (summary ~ "Деактивировать в Insight" or summary ~ "Блокировка УЗ в AD") and component in (Insight, AD) and resolution = unresolved and "Postpone until" < endOfMonth()) or (project = sd and (summary ~ "увольнение") and status = open and assignee = empty) or (project = sd and (summary ~ "прием") and status = open and assignee = empty)`
 
 	foundIssues, err := issueHandler.issueService.GetAll(jql)
 	if err != nil {
@@ -382,7 +382,9 @@ func (issueHandler *issueHandler) AddUserToGroupFromCLI() error {
 			log.Info(fmt.Sprintf("adding user %v to group %v", user.GetAttributeValue("mail"), group.GetAttributeValue("cn")))
 			_, err := issueHandler.activeDirectoryService.AddUserToGroup(user, group)
 			if err != nil {
-				return fmt.Errorf("failed to add user %v to group %v: %w", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err)
+				// return fmt.Errorf("failed to add user %v to group %v: %w", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err)
+				log.Error(fmt.Sprintf("failed to add user %v to group %v: %s", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err))
+
 			}
 
 		}
@@ -391,7 +393,7 @@ func (issueHandler *issueHandler) AddUserToGroupFromCLI() error {
 	return nil
 }
 
-func (issueHandler *issueHandler) ProcessDismissalOrHiringIssue() error {
+func (issueHandler *issueHandler) ProcessStaffIssues() error {
 	jql := `project = "IT Support" and assignee = currentUser() and component in (Dismissal, Hiring) and (text ~ "Прием" or text ~ "Увольнение") and status = open`
 
 	issues, err := issueHandler.issueService.GetAll(jql)
@@ -456,7 +458,7 @@ func (issueHandler *issueHandler) ProcessDismissalOrHiringIssue() error {
 	return nil
 }
 
-func (issueHandler *issueHandler) ProcessDisableActiveDirectoryAccountIssue() error {
+func (issueHandler *issueHandler) ProcessDisableActiveDirectoryAccountIssues() error {
 	jql := `project = "IT Support" AND assignee = currentUser() AND status = open AND summary ~ "Блокировка УЗ в AD для"`
 
 	blockIssues, err := issueHandler.issueService.GetAll(jql)
@@ -527,7 +529,7 @@ func (issueHandler *issueHandler) ProcessDisableActiveDirectoryAccountIssue() er
 	return nil
 }
 
-func (issueHandler *issueHandler) ProcessReturnCCEquipmentIssue() error {
+func (issueHandler *issueHandler) ProcessReturnCCEquipmentIssues() error {
 	jql := `project = "IT Support" and assignee = currentUser() and status = Analysis  and component = "Возврат оборудования" and summary ~ "Проверить наличие техники и организовать ее забор для" and Asset = empty`
 
 	jobTitleCC := "оператор"

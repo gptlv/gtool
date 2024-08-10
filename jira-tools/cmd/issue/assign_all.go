@@ -8,9 +8,9 @@ import (
 
 var assignAllCmd = &cobra.Command{
 	Use:   "assign-all",
-	Short: "Assign all deactivation issues",
+	Short: "Assign all automatable issues to current user",
 	Run: func(cmd *cobra.Command, args []string) {
-		err := issueHandler.AssignAllDeactivateInsightIssuesToMe()
+		err := issueHandler.AssignAutomatableIssuesToCurrentUser()
 		if err != nil {
 			log.Fatal(err)
 		}
