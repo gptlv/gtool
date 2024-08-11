@@ -17,3 +17,7 @@ type AssetService interface {
 	GetLaptopDescription(laptop *models.Object) (*models.LaptopDescription, error)
 	ExtractInformationResourceIdentifier(value string) (string, error)
 }
+
+type AssetHandler interface {
+	PrintLaptopDescription() error
+}

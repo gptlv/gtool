@@ -1,18 +1,15 @@
 package handlers
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"main/internal/interfaces"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/andygrunwald/go-jira"
 	"github.com/charmbracelet/log"
-	"github.com/go-ldap/ldap/v3"
 	"github.com/savioxavier/termlink"
 )
 
@@ -332,62 +329,6 @@ func (issueHandler *issueHandler) AssignAutomatableIssuesToCurrentUser() error {
 
 		time.Sleep(time.Second)
 
-	}
-
-	return nil
-}
-
-func (issueHandler *issueHandler) AddUserToGroupFromCLI() error {
-	var emailList string
-	var activeDirectoryGroupCNList string
-	scanner := bufio.NewScanner(os.Stdin)
-
-	var users []*ldap.Entry
-	var groups []*ldap.Entry
-
-	fmt.Print("enter user(s) email: ")
-	if scanner.Scan() {
-		emailList = scanner.Text()
-	}
-	emails := strings.Fields(emailList)
-
-	fmt.Print("enter group(s) cn: ")
-	if scanner.Scan() {
-		activeDirectoryGroupCNList = scanner.Text()
-	}
-	groupCNs := strings.Fields(activeDirectoryGroupCNList)
-
-	for _, email := range emails {
-		log.Info(fmt.Sprintf("getting AD user by email: %v", email))
-		user, err := issueHandler.activeDirectoryService.GetByEmail(email)
-		if err != nil {
-			return fmt.Errorf("failed to get user by email: %w", err)
-		}
-
-		users = append(users, user)
-	}
-
-	for _, groupCN := range groupCNs {
-		log.Info(fmt.Sprintf("getting AD group by cn: %v", groupCN))
-		group, err := issueHandler.activeDirectoryService.GetByCN(groupCN)
-		if err != nil {
-			return fmt.Errorf("failed to get group by cn: %w", err)
-		}
-
-		groups = append(groups, group)
-	}
-
-	for _, user := range users {
-		for _, group := range groups {
-			log.Info(fmt.Sprintf("adding user %v to group %v", user.GetAttributeValue("mail"), group.GetAttributeValue("cn")))
-			_, err := issueHandler.activeDirectoryService.AddUserToGroup(user, group)
-			if err != nil {
-				// return fmt.Errorf("failed to add user %v to group %v: %w", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err)
-				log.Error(fmt.Sprintf("failed to add user %v to group %v: %s", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err))
-
-			}
-
-		}
 	}
 
 	return nil

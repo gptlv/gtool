@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"main/internal/interfaces"
@@ -16,11 +17,67 @@ type activeDirectoryHandler struct {
 	activeDirectoryService interfaces.ActiveDirectoryService
 }
 
-func NewActiveDirectoryHandler(activeDirectoryService interfaces.ActiveDirectoryService) *activeDirectoryHandler {
+func NewActiveDirectoryHandler(activeDirectoryService interfaces.ActiveDirectoryService) interfaces.ActiveDirectoryHandler {
 	return &activeDirectoryHandler{activeDirectoryService: activeDirectoryService}
 }
 
-func (activeDirectoryHandler *activeDirectoryHandler) RemoveVPNGroupsFromUsers() error {
+func (activeDirectoryHandler *activeDirectoryHandler) AddUsersToGroupsFromCLI() error {
+	var emailList string
+	var activeDirectoryGroupCNList string
+	scanner := bufio.NewScanner(os.Stdin)
+
+	var users []*ldap.Entry
+	var groups []*ldap.Entry
+
+	fmt.Print("enter user(s) email: ")
+	if scanner.Scan() {
+		emailList = scanner.Text()
+	}
+	emails := strings.Fields(emailList)
+
+	fmt.Print("enter group(s) cn: ")
+	if scanner.Scan() {
+		activeDirectoryGroupCNList = scanner.Text()
+	}
+	groupCNs := strings.Fields(activeDirectoryGroupCNList)
+
+	for _, email := range emails {
+		log.Info(fmt.Sprintf("getting AD user by email: %v", email))
+		user, err := activeDirectoryHandler.activeDirectoryService.GetByEmail(email)
+		if err != nil {
+			return fmt.Errorf("failed to get user by email: %w", err)
+		}
+
+		users = append(users, user)
+	}
+
+	for _, groupCN := range groupCNs {
+		log.Info(fmt.Sprintf("getting AD group by cn: %v", groupCN))
+		group, err := activeDirectoryHandler.activeDirectoryService.GetByCN(groupCN)
+		if err != nil {
+			return fmt.Errorf("failed to get group by cn: %w", err)
+		}
+
+		groups = append(groups, group)
+	}
+
+	for _, user := range users {
+		for _, group := range groups {
+			log.Info(fmt.Sprintf("adding user %v to group %v", user.GetAttributeValue("mail"), group.GetAttributeValue("cn")))
+			_, err := activeDirectoryHandler.activeDirectoryService.AddUserToGroup(user, group)
+			if err != nil {
+				// return fmt.Errorf("failed to add user %v to group %v: %w", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err)
+				log.Error(fmt.Sprintf("failed to add user %v to group %v: %s", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err))
+
+			}
+
+		}
+	}
+
+	return nil
+}
+
+func (activeDirectoryHandler *activeDirectoryHandler) RemovePrefixGroupsFromUsers() error {
 	f, err := os.OpenFile("vpn.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)

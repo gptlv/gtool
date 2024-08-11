@@ -13,3 +13,9 @@ type ActiveDirectoryService interface {
 	ExtractCNFromDN(dn string) (string, error)
 	UpdateDN(user *ldap.Entry, newDN string) (*ldap.Entry, error)
 }
+
+type ActiveDirectoryHandler interface {
+	AddUsersToGroupsFromCLI() error
+	RemovePrefixGroupsFromUsers() error
+	MoveUsersToNewOU() error
+}

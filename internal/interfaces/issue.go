@@ -8,7 +8,6 @@ type IssueHandler interface {
 	ProcessGrantAccessIssue() error
 	UpdateBlockTraineeIssue() error
 	ShowIssuesWithEmptyComponent() error
-	AddUserToGroupFromCLI() error
 	ProcessStaffIssues() error
 	ProcessDisableActiveDirectoryAccountIssues() error
 	ProcessReturnCCEquipmentIssues() error

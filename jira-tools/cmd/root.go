@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	ad "main/jira-tools/cmd/active-directory"
+	"main/jira-tools/cmd/asset"
 	"main/jira-tools/cmd/issue"
-	"main/jira-tools/cmd/version"
+	writeoff "main/jira-tools/cmd/write-off"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -11,7 +13,9 @@ import (
 
 func init() {
 	rootCmd.AddCommand(issue.IssueCmd)
-	rootCmd.AddCommand(version.VersionCmd)
+	rootCmd.AddCommand(ad.ActiveDirectoryCmd)
+	rootCmd.AddCommand(writeoff.WriteOffCmd)
+	rootCmd.AddCommand(asset.AssetCmd)
 }
 
 var rootCmd = &cobra.Command{

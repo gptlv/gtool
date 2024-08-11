@@ -13,7 +13,7 @@ import (
 var issueHandler interfaces.IssueHandler
 
 func init() {
-	initHandler()
+	initIssueHandler()
 	IssueCmd.AddCommand(assignAllCmd)
 	IssueCmd.AddCommand(deactivateInsightCmd)
 	IssueCmd.AddCommand(disableActiveDirectoryCmd)
@@ -32,7 +32,7 @@ var IssueCmd = &cobra.Command{
 	},
 }
 
-func initHandler() error {
+func initIssueHandler() error {
 	client, err := common.GetJiraClient()
 	if err != nil {
 		return fmt.Errorf("failed to get jira client: %w", err)
