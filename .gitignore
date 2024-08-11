@@ -28,8 +28,5 @@ go.work
 
 .env
 .vscode
-
-output
 .DS_Store
-*.log
 *.csv
