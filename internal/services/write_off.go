@@ -1,12 +1,12 @@
 package services
 
 import (
-	"main/internal/domain"
-	"main/internal/interfaces"
 	"os"
 	"time"
 
 	"github.com/goodsign/monday"
+	"github.com/gptlv/gtools/internal/domain"
+	"github.com/gptlv/gtools/internal/interfaces"
 )
 
 type writeOffService struct {

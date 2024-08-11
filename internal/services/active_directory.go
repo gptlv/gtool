@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"main/internal/interfaces"
 	"os"
 
-	ldap "github.com/go-ldap/ldap/v3"
+	"github.com/go-ldap/ldap/v3"
+	"github.com/gptlv/gtools/internal/interfaces"
 )
 
 type activeDirectoryService struct {

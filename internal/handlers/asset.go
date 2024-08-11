@@ -2,8 +2,9 @@ package handlers
 
 import (
 	"fmt"
-	"log"
-	"main/internal/interfaces"
+
+	"github.com/charmbracelet/log"
+	"github.com/gptlv/gtools/internal/interfaces"
 )
 
 type assetHandler struct {

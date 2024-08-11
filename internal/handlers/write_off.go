@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"fmt"
-	"main/internal/domain"
-	"main/internal/interfaces"
-	"main/util"
 
 	"github.com/charmbracelet/log"
+	"github.com/gptlv/gtools/internal/domain"
+	"github.com/gptlv/gtools/internal/interfaces"
+	"github.com/gptlv/gtools/util"
 )
 
 type writeOffHandler struct {

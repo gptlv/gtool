@@ -1,7 +1,7 @@
 package common
 
 import (
-	"main/config"
+	"github.com/gptlv/gtools/config"
 
 	"github.com/andygrunwald/go-jira"
 )

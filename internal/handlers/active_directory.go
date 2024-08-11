@@ -4,13 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"main/internal/interfaces"
+
 	"os"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/log"
 	"github.com/go-ldap/ldap/v3"
+	"github.com/gptlv/gtools/internal/interfaces"
 )
 
 type activeDirectoryHandler struct {

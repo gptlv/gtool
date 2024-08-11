@@ -1,6 +1,6 @@
 package main
 
-import "main/jira-tools/cmd"
+import "github.com/gptlv/gtools/cmd"
 
 func main() {
 	cmd.Execute()

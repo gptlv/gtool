@@ -1,8 +1,6 @@
 package interfaces
 
-import (
-	"main/internal/models"
-)
+import "github.com/gptlv/gtools/internal/models"
 
 type AssetService interface {
 	GetAll(iql string) (*models.GetObjectRes, error)

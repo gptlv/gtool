@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"main/config"
-	"main/internal/interfaces"
-	"main/internal/models"
 	"regexp"
 
 	"github.com/andygrunwald/go-jira"
+	"github.com/gptlv/gtools/config"
+	"github.com/gptlv/gtools/internal/interfaces"
+	"github.com/gptlv/gtools/internal/models"
 )
 
 type assetService struct {

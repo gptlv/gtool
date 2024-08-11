@@ -2,11 +2,11 @@ package writeoff
 
 import (
 	"fmt"
-	"main/common"
-	"main/internal/handlers"
-	"main/internal/interfaces"
-	"main/internal/services"
 
+	"github.com/gptlv/gtools/common"
+	"github.com/gptlv/gtools/internal/handlers"
+	"github.com/gptlv/gtools/internal/interfaces"
+	"github.com/gptlv/gtools/internal/services"
 	"github.com/spf13/cobra"
 )
 

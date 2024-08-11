@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	ad "main/jira-tools/cmd/active-directory"
-	"main/jira-tools/cmd/asset"
-	"main/jira-tools/cmd/issue"
-	writeoff "main/jira-tools/cmd/write-off"
 	"os"
 
+	ad "github.com/gptlv/gtools/cmd/active-directory"
+	"github.com/gptlv/gtools/cmd/asset"
+	"github.com/gptlv/gtools/cmd/issue"
+	writeoff "github.com/gptlv/gtools/cmd/write-off"
 	"github.com/spf13/cobra"
 )
 

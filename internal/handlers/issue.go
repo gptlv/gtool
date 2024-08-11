@@ -3,13 +3,13 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"main/internal/interfaces"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/andygrunwald/go-jira"
 	"github.com/charmbracelet/log"
+	"github.com/gptlv/gtools/internal/interfaces"
 	"github.com/savioxavier/termlink"
 )
 

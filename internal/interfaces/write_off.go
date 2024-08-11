@@ -1,6 +1,6 @@
 package interfaces
 
-import "main/internal/domain"
+import "github.com/gptlv/gtools/internal/domain"
 
 type WriteOffService interface {
 	CreateWriteOffRecord(row []string) (*domain.WriteOffRecord, error)
