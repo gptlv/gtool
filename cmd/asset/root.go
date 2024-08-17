@@ -13,6 +13,7 @@ import (
 func init() {
 	initAssetHandler()
 	AssetCmd.AddCommand(getLaptopDescriptionCmd)
+	AssetCmd.AddCommand(generateRecordsCmd)
 }
 
 var assetHandler interfaces.AssetHandler

@@ -1,6 +1,8 @@
 package interfaces
 
-import "github.com/gptlv/gtools/internal/models"
+import (
+	"github.com/gptlv/gtools/internal/models"
+)
 
 type AssetService interface {
 	GetAll(iql string) (*models.GetObjectRes, error)
@@ -18,4 +20,5 @@ type AssetService interface {
 
 type AssetHandler interface {
 	PrintLaptopDescription() error
+	GenerateWriteOffRecords() error
 }

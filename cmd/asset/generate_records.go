@@ -1,4 +1,4 @@
-package writeoff
+package asset
 
 import (
 	"log"
@@ -10,7 +10,7 @@ var generateRecordsCmd = &cobra.Command{
 	Use:   "generate-records",
 	Short: "generate write-off records",
 	Run: func(cmd *cobra.Command, args []string) {
-		err := writeOffHandler.GenerateWriteOffRecords()
+		err := assetHandler.GenerateWriteOffRecords()
 		if err != nil {
 			log.Fatal(err)
 		}

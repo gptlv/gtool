@@ -67,7 +67,6 @@ func (activeDirectoryHandler *activeDirectoryHandler) AddUsersToGroupsFromCLI() 
 			log.Info(fmt.Sprintf("adding user %v to group %v", user.GetAttributeValue("mail"), group.GetAttributeValue("cn")))
 			_, err := activeDirectoryHandler.activeDirectoryService.AddUserToGroup(user, group)
 			if err != nil {
-				// return fmt.Errorf("failed to add user %v to group %v: %w", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err)
 				log.Error(fmt.Sprintf("failed to add user %v to group %v: %s", user.GetAttributeValue("mail"), group.GetAttributeValue("cn"), err))
 
 			}

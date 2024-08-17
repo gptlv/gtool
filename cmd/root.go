@@ -7,14 +7,12 @@ import (
 	ad "github.com/gptlv/gtools/cmd/active-directory"
 	"github.com/gptlv/gtools/cmd/asset"
 	"github.com/gptlv/gtools/cmd/issue"
-	writeoff "github.com/gptlv/gtools/cmd/write-off"
 	"github.com/spf13/cobra"
 )
 
 func init() {
 	rootCmd.AddCommand(issue.IssueCmd)
 	rootCmd.AddCommand(ad.ActiveDirectoryCmd)
-	rootCmd.AddCommand(writeoff.WriteOffCmd)
 	rootCmd.AddCommand(asset.AssetCmd)
 }
 

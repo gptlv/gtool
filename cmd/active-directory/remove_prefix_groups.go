@@ -1,4 +1,4 @@
-package ad
+package active_directory
 
 import (
 	"log"
