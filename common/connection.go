@@ -16,7 +16,6 @@ func GetLDAPConnection() (*ldap.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
 
 	err = conn.Bind(cfg.ActiveDirectory.AdminDN, cfg.ActiveDirectory.AdminPassword)
 	if err != nil {

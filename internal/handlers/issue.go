@@ -52,7 +52,8 @@ func (issueHandler *issueHandler) ProcessDeactivateInsightAccountIssues() error 
 		log.Info(fmt.Sprintf("getting subtask by component %v", componentName))
 		returnEquipmentSubtask, err := issueHandler.issueService.GetSubtaskByComponent(parentIssue, componentName)
 		if err != nil {
-			return fmt.Errorf("failed to get subtask by component %v: %w", componentName, err)
+			log.Error(fmt.Errorf("failed to get subtask by component %v: %w", componentName, err))
+			continue
 		}
 
 		if returnEquipmentSubtask.Fields.Status.Name != "Closed" {
@@ -485,6 +486,8 @@ func (issueHandler *issueHandler) ProcessReturnCCEquipmentIssues() error {
 	}
 
 	for _, returnEquipmentIssue := range returnEquipmentIssues {
+		var commentText string
+
 		log.SetPrefix(returnEquipmentIssue.Key)
 		log.Info(fmt.Sprintf("start processing the issue %v", issueHandler.issueService.Summarize(&returnEquipmentIssue)))
 
@@ -497,40 +500,46 @@ func (issueHandler *issueHandler) ProcessReturnCCEquipmentIssues() error {
 			return fmt.Errorf("failed to get user %v by email: %w", email, err)
 		}
 
-		log.Info(fmt.Sprintf("getting %v's laptops", email))
-		getUserLaptopsRes, err := issueHandler.assetService.GetUserLaptops(user)
-		if err != nil {
-			return fmt.Errorf("failed to get user's %v laptops: %w", email, err)
-		}
+		if user != nil {
+			log.Info(fmt.Sprintf("getting %v's laptops", email))
+			getUserLaptopsRes, err := issueHandler.assetService.GetUserLaptops(user)
+			if err != nil {
+				return fmt.Errorf("failed to get user's %v laptops: %w", email, err)
+			}
 
-		laptops := getUserLaptopsRes.ObjectEntries
-		log.Info(fmt.Sprintf("user %v has %v attached laptops", email, len(laptops)))
-		if len(laptops) > 0 {
-			log.Info("user still has attached laptops, skipping the issue...\n")
-			time.Sleep(5 * time.Second)
-			continue
-		}
+			laptops := getUserLaptopsRes.ObjectEntries
+			log.Info(fmt.Sprintf("user %v has %v attached laptops", email, len(laptops)))
+			if len(laptops) > 0 {
+				log.Info("user still has attached laptops, skipping the issue...\n")
+				time.Sleep(5 * time.Second)
+				continue
+			}
 
-		parentIssueID := returnEquipmentIssue.Fields.Parent.ID
-		parentIssue, err := issueHandler.issueService.GetByID(parentIssueID)
-		if err != nil {
-			return fmt.Errorf("failed to get parent issue %v by key: %w", parentIssueID, err)
-		}
-		log.Info(fmt.Sprintf("found parent issue: %v", issueHandler.issueService.Summarize(parentIssue)))
+			parentIssueID := returnEquipmentIssue.Fields.Parent.ID
+			parentIssue, err := issueHandler.issueService.GetByID(parentIssueID)
+			if err != nil {
+				return fmt.Errorf("failed to get parent issue %v by key: %w", parentIssueID, err)
+			}
+			log.Info(fmt.Sprintf("found parent issue: %v", issueHandler.issueService.Summarize(parentIssue)))
 
-		log.Info(fmt.Sprintf("getting %v's job title", email))
-		jobTitleField, err := issueHandler.issueService.GetCustomFieldValue(parentIssue, "customfield_10197")
-		if err != nil {
-			return fmt.Errorf("failed to get custom field value for %v: %w", parentIssue.Key, err)
-		}
-		jobTitle := jobTitleField.(string)
-		log.Info(fmt.Sprintf("%v's job title is \"%v\"", email, jobTitle))
+			log.Info(fmt.Sprintf("getting %v's job title", email))
+			jobTitleField, err := issueHandler.issueService.GetCustomFieldValue(parentIssue, "customfield_10197")
+			if err != nil {
+				return fmt.Errorf("failed to get custom field value for %v: %w", parentIssue.Key, err)
+			}
+			jobTitle := jobTitleField.(string)
+			log.Info(fmt.Sprintf("%v's job title is \"%v\"", email, jobTitle))
 
-		if strings.Trim(strings.ToLower(jobTitle), " ") != jobTitleCC {
-			log.Info(fmt.Sprintf("job title \"%v\" doesn't equal to \"%v\"", jobTitle, jobTitleCC))
-			log.Info("skipping the issue...\n")
-			time.Sleep(5 * time.Second)
-			continue
+			if strings.Trim(strings.ToLower(jobTitle), " ") != jobTitleCC {
+				log.Info(fmt.Sprintf("job title \"%v\" doesn't equal to \"%v\"", jobTitle, jobTitleCC))
+				log.Info("skipping the issue...\n")
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			commentText = "Оборудование не отправлялось"
+		} else {
+			log.Info(fmt.Sprintf("user %v not found", email))
+			commentText = "Пользователя нет в Insight"
 		}
 
 		log.Info("declining the issue")
@@ -538,8 +547,6 @@ func (issueHandler *issueHandler) ProcessReturnCCEquipmentIssues() error {
 		if err != nil {
 			return fmt.Errorf("failed to decline issue %v: %w", returnEquipmentIssue.Key, err)
 		}
-
-		commentText := "Оборудование не отправлялось"
 
 		log.Info(fmt.Sprintf("writing internal comment \"%v\"", commentText))
 		_, err = issueHandler.issueService.WriteInternalComment(&returnEquipmentIssue, commentText)
