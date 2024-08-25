@@ -265,7 +265,11 @@ func (g *gtool) PrintDescription() error {
 }
 
 func (g *gtool) GenerateRecords() error {
-	records := []*ObjectDescription{}
+	_, _, err := g.client.Object.Get("ISC-192756", nil)
+	if err != nil {
+		return err
+	}
+	records := []*Record{}
 
 	inputFile := config.WriteOff.InputFile
 	outputFile := config.WriteOff.OutputFile
@@ -304,10 +308,7 @@ func (g *gtool) GenerateRecords() error {
 			return fmt.Errorf("failed to get laptop description: %w", err)
 		}
 
-		record.Name = description.Name
-		record.InventoryID = description.InventoryID
-		record.Serial = description.Serial
-
+		record.ObjectDescription = description
 		record.TeamLead = config.WriteOff.TeamLead
 		record.DepartmentLead = config.WriteOff.DepartmentLead
 		record.Director = config.WriteOff.Director

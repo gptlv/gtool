@@ -8,18 +8,22 @@ import (
 )
 
 type ObjectDescription struct {
-	ID             string `csv:"id,omitempty"`
-	Name           string `csv:"name,omitempty"`
-	ISC            string `csv:"isc,omitempty"`
-	Cost           string `csv:"cost,omitempty"`
-	Serial         string `csv:"serial,omitempty"`
-	InventoryID    string `csv:"inventory_id,omitempty"`
-	Flaw           string `csv:"flaw,omitempty"`
-	Decision       string `csv:"decision,omitempty"`
+	ISC         string `csv:"isc"`
+	Name        string `csv:"name"`
+	Cost        string `csv:"cost"`
+	Serial      string `csv:"serial"`
+	InventoryID string `csv:"inventory_id"`
+}
+
+type Record struct {
+	ID string `csv:"id,omitempty"`
+	*ObjectDescription
+	Flaw           string `csv:"flaw"`
+	Decision       string `csv:"decision"`
+	Date           string `csv:"date,omitempty"`
 	TeamLead       string `csv:"team_lead,omitempty"`
 	DepartmentLead string `csv:"department_lead,omitempty"`
 	Director       string `csv:"director,omitempty"`
-	Date           string `csv:"date,omitempty"`
 }
 
 func (d ObjectDescription) String() string {

@@ -45,7 +45,7 @@ func main() {
 
 	gt := New(client, conn)
 
-	err = gt.ProcessAD()
+	err = gt.GenerateRecords()
 	if err != nil {
 		log.Fatal(err)
 	}
