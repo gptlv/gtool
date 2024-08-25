@@ -1,0 +1,19 @@
+app:
+  name: 'gtool'
+  version: '1.0.0'
+
+jira:
+  attribute:
+    isc: 879
+    name: 880
+    serial: 889
+    cost: 4184
+    inventory_id: 932
+
+
+write_off:
+  input_file: 'info.csv'
+  output_file: 'records.csv'
+  department_lead: 'Иванов И.И.'
+  team_lead: 'Петров П.П.'
+  director: 'Сидоров С.С.'
