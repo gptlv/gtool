@@ -10,9 +10,233 @@ import (
 
 	"github.com/andygrunwald/go-jira"
 	"github.com/charmbracelet/log"
+	"github.com/savioxavier/termlink"
 )
 
 var internalCommentProperty = jira.Property{Key: "sd.public.comment", Value: jira.Value{Internal: true}}
+
+func (g *gtool) ProcessInsight() error {
+	jql := `project = sd and assignee = currentUser() and status = open and summary ~ "Деактивировать в Insight"`
+
+	issues, _, err := g.client.Issue.Search(jql, &jira.SearchOptions{MaxResults: 1000})
+	if err != nil {
+		return err
+	}
+
+	if len(issues) == 0 {
+		log.Info("no issues found")
+	}
+
+	for _, issue := range issues {
+		log.SetPrefix(issue.Key)
+		log.Info("start processing the issue")
+		err := g.processDeactivateInsightIssue(&issue)
+		if err != nil {
+			log.Error(fmt.Errorf("failed to process issue: %w", err))
+		}
+		log.Info("finished processing the issue\n")
+
+		time.Sleep(5 * time.Second)
+	}
+
+	return nil
+}
+
+func (g *gtool) GrantAccess(key string) error {
+	log.SetPrefix(key)
+	log.Info("getting issue by key")
+	issue, _, err := g.client.Issue.Get(key, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get issue: %w", err)
+	}
+
+	return g.processGrantAccessIssue(issue)
+}
+
+func (g *gtool) UpdateBlockTraineeIssue(key string) error {
+	log.SetPrefix(key)
+	issue, _, err := g.client.Issue.Get(key, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get issue: %w", err)
+	}
+
+	return g.processBlockTraineeIssue(issue)
+}
+
+func (g *gtool) ShowEmpty() error {
+	jql := `project = SD AND component = EMPTY AND assignee in (EMPTY) AND resolution = Unresolved and updated > startOfDay()`
+
+	for {
+		fmt.Print("\033[H\033[2J")
+		issues, _, err := g.client.Issue.Search(jql, &jira.SearchOptions{MaxResults: 1000})
+		if err != nil {
+			return fmt.Errorf("failed to search for issues: %w", err)
+		}
+
+		for _, issue := range issues {
+			issueLink := fmt.Sprintf("https://jira.sbmt.io/browse/%s", issue.Key)
+			fmt.Println(termlink.Link(fmt.Sprint(issue), issueLink))
+		}
+
+		time.Sleep(5 * time.Second)
+
+	}
+
+}
+
+func (g *gtool) AssignAll(component string) error {
+	var jql string
+
+	if component == "all" {
+		jql = `(project = SD and assignee = empty and (summary ~ "Деактивировать в Insight" or summary ~ "Блокировка УЗ в AD") and component in (Insight, AD) and resolution = unresolved and "Postpone until" < endOfMonth()) or (project = sd and (summary ~ "увольнение") and status = open and assignee = empty) or (project = sd and (summary ~ "прием") and status = open and assignee = empty)`
+	}
+
+	if component == "hiring" {
+		jql = `project = sd and component = Hiring and summary ~ "прием" and status = open and assignee = empty`
+	}
+
+	if component == "dismissal" {
+		jql = `project = sd and component = Dismissal and summary ~ "увольнение" and status = open and assignee = empty`
+	}
+
+	if component == "insight" {
+		jql = `project = sd and component = Insight and summary ~ "Деактивировать в Insight" and resolution = unresolved and "Postpone until" < endOfMonth() and assignee = empty`
+	}
+
+	if component == "ldap" {
+		jql = `project = sd and component = AD and summary ~ "Блокировка УЗ в AD" and resolution = unresolved and "Postpone until" < endOfMonth() and assignee = empty`
+	}
+
+	if jql == "" {
+		return errors.New("empty jql")
+	}
+
+	issues, _, err := g.client.Issue.Search(jql, &jira.SearchOptions{MaxResults: 1000})
+	if err != nil {
+		return fmt.Errorf("failed to search for issues: %w", err)
+	}
+
+	if len(issues) == 0 {
+		log.Info("no issues found")
+	}
+
+	user, _, err := g.client.User.GetSelf()
+	if err != nil {
+		return fmt.Errorf("failed to get current user: %w", err)
+	}
+
+	payload := new(jira.User)
+	payload.Name = user.Name
+
+	for _, issue := range issues {
+		log.SetPrefix(issue.Key)
+		log.Info(fmt.Sprintf("assigning the issue to %s", user.Name))
+
+		_, err := g.client.Issue.UpdateAssignee(issue.ID, payload)
+		if err != nil {
+			return fmt.Errorf("failed to update assignee: %w", err)
+		}
+
+		time.Sleep(time.Second)
+
+	}
+
+	return nil
+}
+
+func (g *gtool) ProcessStaff(component string) error {
+	var jql string
+
+	if component == "hiring" {
+		jql = `project = sd and component = Hiring and text ~ "Прием" and status = open and assignee = currentUser()`
+	}
+
+	if component == "dismissal" {
+		jql = `project = sd and component = Dismissal and text ~ "Увольнение" and status = open and assignee = currentUser()`
+	}
+
+	if component == "all" {
+		jql = `(project = sd and component = Hiring and text ~ "Прием" and status = open and assignee = currentUser()) or (project = sd and component = Dismissal and text ~ "Увольнение" and status = open and assignee = currentUser())`
+	}
+
+	if jql == "" {
+		return errors.New("empty jql")
+	}
+	issues, _, err := g.client.Issue.Search(jql, &jira.SearchOptions{MaxResults: 1000, Expand: "transitions"})
+	if err != nil {
+		return fmt.Errorf("failed to search for issues: %w", err)
+	}
+
+	if len(issues) == 0 {
+		log.Info("no issues found")
+	}
+
+	for _, issue := range issues {
+		log.SetPrefix(issue.Key)
+		log.Info("start processing the issue")
+		if err := g.processStaffIssue(&issue); err != nil {
+			return err
+		}
+		log.Info("finished processing the issue\n")
+
+		time.Sleep(5 * time.Second)
+	}
+
+	return nil
+}
+
+func (g *gtool) ReturnEquipment() error {
+	jql := `project = sd and assignee = currentUser() and status = Analysis and component = "Возврат оборудования" and summary ~ "Проверить наличие техники и организовать ее забор для" and Asset = empty`
+
+	issues, _, err := g.client.Issue.Search(jql, &jira.SearchOptions{MaxResults: 1000})
+	if err != nil {
+		return fmt.Errorf("failed to get issues: %w", err)
+	}
+
+	if len(issues) == 0 {
+		log.Info("no issues found")
+	}
+
+	for _, issue := range issues {
+		log.SetPrefix(issue.Key)
+		err := g.processReturnEquipmentIssue(&issue)
+		if err != nil {
+			return fmt.Errorf("failed to process %s", issue.Key)
+		}
+		log.Info("finished processing the issue\n")
+
+		time.Sleep(5 * time.Second)
+	}
+
+	return nil
+}
+
+func (g *gtool) ProcessLDAP() error {
+	jql := `project = sd and assignee = currentUser() and status = open and summary ~ "Блокировка УЗ в AD для"`
+
+	issues, _, err := g.client.Issue.Search(jql, &jira.SearchOptions{MaxResults: 1000})
+	if err != nil {
+		return err
+	}
+
+	if len(issues) == 0 {
+		log.Info("no issues found")
+	}
+
+	for _, issue := range issues {
+		log.SetPrefix(issue.Key)
+		log.Info("start processing the issue")
+		err := g.processDisableActiveDirectoryIssue(&issue)
+		if err != nil {
+			return fmt.Errorf("failed to process %s: %w", issue.Key, err)
+		}
+		log.Info("finished processing the issue\n")
+
+		time.Sleep(5 * time.Second)
+	}
+
+	return nil
+}
 
 func (g *gtool) processDeactivateInsightIssue(issue *jira.Issue) error {
 	log.SetPrefix(issue.Key)
@@ -474,7 +698,7 @@ func (g *gtool) processGrantAccessIssue(issue *jira.Issue) error {
 	}
 
 	log.Info("getting user by email")
-	userQuery := fmt.Sprintf("(mail=%s)", email)
+	userQuery := fmt.Sprintf("mail=%s", email)
 	user, err := g.searchEntry(userQuery, []string{})
 	if err != nil {
 		return fmt.Errorf("failed to get user by email: %w", err)

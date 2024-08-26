@@ -3,6 +3,7 @@ module github.com/gptlv/gtools
 go 1.22.0
 
 require (
+	github.com/alexflint/go-arg v1.5.1
 	github.com/andygrunwald/go-jira v1.16.0
 	github.com/charmbracelet/log v0.4.0
 	github.com/go-ldap/ldap v3.0.3+incompatible
@@ -17,6 +18,7 @@ replace github.com/andygrunwald/go-jira => github.com/gptlv/go-jira v0.0.0-20240
 
 require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
+	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/lipgloss v0.10.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
