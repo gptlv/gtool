@@ -681,7 +681,7 @@ func (g *gtool) processGrantAccessIssue(issue *jira.Issue) error {
 	log.Info(fmt.Sprintf("getting information resource by key %s", roleID))
 	object, _, err := g.client.Object.Get(roleID, nil)
 	if err != nil {
-		return fmt.Errorf("failed to get role obejct: %w", err)
+		return fmt.Errorf("failed to get role object: %w", err)
 	}
 
 	for _, attribute := range object.Attributes {
