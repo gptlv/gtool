@@ -1,4 +1,4 @@
-module github.com/gptlv/gtools
+module github.com/gptlv/gtool
 
 go 1.22.0
 
@@ -14,7 +14,7 @@ require (
 	github.com/savioxavier/termlink v1.4.0
 )
 
-replace github.com/andygrunwald/go-jira => github.com/gptlv/go-jira v0.0.0-20240825205437-86e4743447dc
+replace github.com/andygrunwald/go-jira => github.com/gptlv/go-jira v0.0.0-20240826115246-1e0acfe671a0
 
 require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
