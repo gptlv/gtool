@@ -3,8 +3,13 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/andygrunwald/go-jira"
+	"github.com/charmbracelet/log"
+	"github.com/gocarina/gocsv"
+	"github.com/goodsign/monday"
 )
 
 type ObjectDescription struct {
@@ -16,7 +21,7 @@ type ObjectDescription struct {
 }
 
 type Record struct {
-	ID string `csv:"id,omitempty"`
+	ID int `csv:"id,omitempty"`
 	*ObjectDescription
 	Flaw           string `csv:"flaw"`
 	Decision       string `csv:"decision"`
@@ -24,6 +29,110 @@ type Record struct {
 	TeamLead       string `csv:"team_lead,omitempty"`
 	DepartmentLead string `csv:"department_lead,omitempty"`
 	Director       string `csv:"director,omitempty"`
+}
+
+func (g *gtool) PrintDescription(email string) error {
+	if email == "" {
+		return errors.New("empty email")
+	}
+
+	userList, _, err := g.getUserByEmail(email)
+	if err != nil {
+		return fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	if len(userList.ObjectEntries) == 0 {
+		return fmt.Errorf("no user found")
+	}
+
+	user := &userList.ObjectEntries[0]
+
+	laptopsRes, _, err := g.getUserLaptops(user)
+	if err != nil {
+		return fmt.Errorf("failed to get user laptops: %w", err)
+	}
+
+	for _, laptop := range laptopsRes.ObjectEntries {
+		description, err := g.getObjectDescription(&laptop)
+		if err != nil {
+			return fmt.Errorf("failed to get description for %s: %w", laptop.ObjectKey, err)
+		}
+
+		fmt.Print(description)
+	}
+
+	return nil
+}
+
+func (g *gtool) GenerateRecords(startID int) error {
+	records := []*Record{}
+
+	inputFile := config.WriteOff.InputFile
+	outputFile := config.WriteOff.OutputFile
+
+	log.Info(fmt.Sprintf("input file name: %v", inputFile))
+	log.Info(fmt.Sprintf("output file name: %v\n", outputFile))
+
+	log.Info(fmt.Sprintf("reading csv input file %v\n", inputFile))
+	input, err := os.Open(inputFile)
+	if err != nil {
+		return fmt.Errorf("failed to open input file: %w", err)
+	}
+	defer input.Close()
+
+	log.Info("unmarshaling input file\n")
+	err = gocsv.UnmarshalFile(input, &records)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal input file %s: %w", inputFile, err)
+	}
+
+	t := time.Now()
+	layout := "2 January 2006"
+	date := monday.Format(t, layout, monday.LocaleRuRU)
+
+	for _, record := range records {
+		log.SetPrefix(record.ISC)
+		log.Info("getting laptop by isc")
+		laptop, _, err := g.client.Object.Get(record.ISC, nil)
+		if err != nil {
+			return fmt.Errorf("failed to get laptop by ISC: %w", err)
+		}
+
+		log.Info("getting laptop description")
+		description, err := g.getObjectDescription(laptop)
+		if err != nil {
+			return fmt.Errorf("failed to get laptop description: %w", err)
+		}
+
+		record.ID = startID
+		record.ObjectDescription = description
+		record.TeamLead = config.WriteOff.TeamLead
+		record.DepartmentLead = config.WriteOff.DepartmentLead
+		record.Director = config.WriteOff.Director
+		record.Date = date
+
+		startID += 1
+
+		log.Info("finished processing the asset\n")
+		log.SetPrefix("")
+	}
+
+	log.Info("opening output file")
+	output, err := os.OpenFile(outputFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+	defer output.Close()
+
+	log.Info("marshaling output file")
+	err = gocsv.MarshalFile(&records, output)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal csv file: %w", err)
+	}
+
+	log.Info("finished generating write-off records\n")
+
+	return nil
 }
 
 func (d ObjectDescription) String() string {
