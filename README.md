@@ -1,61 +1,67 @@
 # gtool
 
-Данное приложение предназначено для взаимодействия с системами JIRA и Active Directory и предлагает ряд инструментов для автоматизации задач.
+[🇷🇺Русская версия](README.ru.md)
 
-## Зачем?
+This application is designed for interaction with JIRA and Active Directory systems and offers a range of tools for task automation.
 
-В ходе работы я начал замечать повторяющиеся, рутинные задачи, которые выполнялись в несколько простых действий. Родилась идея автоматизировать выполнение этих задач.
+## Why?
 
-## Основной функционал
+During my work, I noticed repetitive, routine tasks that were performed with just a few simple steps. This sparked the idea of automating the execution of these tasks.
 
-- **Работа с задачами JIRA**: обновление статуса сотрудников в CMDB Insight, назначение, обновление и закрытие задач на блокировку/прием сотрудников, предоставление доступов.
-- **Работа с объектами в CMDB**: генерация информации для списания оборудования, вывод описания ноутбука для последующего оформления заказов в курьерской службе.
-- **Работа с LDAP**: управление группами пользователей и их доступами.
+## Key Features
 
-## Установка
+- **JIRA Task Management**: Update employee status in CMDB Insight, assign, update, and close tasks related to employee onboarding/offboarding, and grant access.
+- **CMDB Object Management**: Generate information for equipment write-offs and display descriptions of laptops for subsequent courier service orders.
+- **LDAP Management**: Manage user groups and their access rights.
 
-1. Склонировать репозиторий
+## Installation
+
+1. Clone the repository
 
 ```
 git clone https://github.com/gptlv/gtool.git
 cd gtool
 ```
 
-2. Создать файл `.env` и указать необходимые данные (пример -- в файле `.env.example`)
+2. Create a `.env` file and provide the necessary data (example is in `.env.example`):
+
 ```
 touch .env
 ```
 
-3. Заполнить конфигурационный файл `config.yml`. Необходимо указать актуальные фамилии сотрудников для генерации документов
+3. Fill in the `config.yml` configuration file. You need to provide up-to-date employee surnames for document generation.
 
-3. Собрать проект
+4.	Run `go mod tidy` to ensure all dependencies are properly managed.
+
+5. Build the project:
+
 ```
 go build -o gtool .
 ```
 
-## Доступные команды
+## Available Commands
 
-### Обработка заявок в JIRA
+### JIRA Ticket Processing
 
-- `./gtool issue process-insight` Обработка заявок на деактивацию пользователя в Insight
-- `./gtool issue process-ldap` Обработка заявок на деактивацию пользователей в Active Directory
-- `./gtool issue process-staff --component=[all|hiring|dismissal]` Обработка заявок на прием и/или увольнение сотрудников
-- `./gtool issue grant-access --key=<key>` Обработка заявки на выдачу доступа (добавление группы в Active Directory)
-- `./gtool issue assign --component=[all|hiring|dismissal|insight|ldap]` Назначение заявок на текущуго пользователя
-- `./gtool issue update-trainee --key=<key>` Обновление названия подзадач задачи на блокировку стажеров
-- `./gtool issue show-empty` Вывод заявок, которые требуют указания компонента
+- `./gtool issue process-insight` Process user deactivation requests in Insight.
+- `./gtool issue process-ldap` Process user deactivation requests in Active Directory.
+- `./gtool issue process-staff --component=[all|hiring|dismissal]` Process employee hiring and/or dismissal requests.
+- `./gtool issue grant-access --key=<key>` Process access request (add group in Active Directory).
+- `./gtool issue assign --component=[all|hiring|dismissal|insight|ldap]` Assign requests to the current user.
+- `./gtool issue update-trainee --key=<key>` Update subtask names related to intern offboarding.
+- `./gtool issue show-empty` Show tickets that require specifying a component.
 
-### Обращения к CMDB
+### CMDB Queries
 
-- `./gtool asset generate-records --start=<id>` Генерация .csv файла с необходимыми данными для использования в скрипте [wroffs](https://github.com/gptlv/wroffs)
-- `./gtool asset print-description --isc=<isc>` Вывод описания ноутбука для добавления в заказ для курьерской службы
+- `./gtool asset generate-records --start=<id>` Generate a `.csv` file with necessary data for use in the [wroffs](https://github.com/gptlv/wroffs) script.
+- `./gtool asset print-description --isc=<isc>` Display a laptop description to add to a courier service order.
 
-### Обращения к Active Directory
+### Active Directory Queries
 
-- `./gtool ldap add-group -emails <user1@ex.com user2@ex.com> -cns <cn1 cn2 cn3>` Добавление нескольких пользователей в несколько групп в Active Directory
+- `./gtool ldap add-group -emails <user1@ex.com user2@ex.com> -cns <cn1 cn2 cn3>` Add multiple users to multiple groups in Active Directory.
 
-### Основные библиотеки
+### Main Libraries
 
-- [go-arg](https://github.com/alexflint/go-arg) для парсинга аргументов командной строки.
-- [go-jira](https://github.com/andygrunwald/go-jira) для взаимодействия с API JIRA. Использовал [собственный форк](https://github.com/gptlv/go-jira), который расширяет функционал для работы с JIRA Insight
-- [go-ldap](https://github.com/go-ldap/ldap) для операций с LDAP.
+- [go-arg](https://github.com/alexflint/go-arg) for command-line argument parsing.
+- [go-jira](https://github.com/andygrunwald/go-jira) or JIRA API interaction. I used my [own fork](https://github.com/gptlv/go-jira), which extends functionality for working with JIRA Insight
+- [go-ldap](https://github.com/go-ldap/ldap) for LDAP operations.
