@@ -1,6 +1,6 @@
 # gtool
 
-[🇷🇺Русская версия](README.ru.md)
+[🇷🇺 Русская версия](README.ru.md)
 
 This application is designed for interaction with JIRA and Active Directory systems and offers a range of tools for task automation.
 
